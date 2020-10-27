@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: experiment-1
+  namespace: nasrl
+  labels:
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/name: experiment-1
+    app.kubernetes.io/component: nasrl-my-area-here
+    app.kubernetes.io/part-of: nasrl
+spec:
+  completions: 3
+  parallelism: 3
+  template:
+    spec:
+      containers:
+      - name: nasrl
+        image: 10.0.0.8:15050/georgetownschool/nasrl/libnasrl:ci.7af0a7a7
+        command: ["python"]
+        args: ["-m", "nasrl.exec.hello"]
+      restartPolicy: Never
