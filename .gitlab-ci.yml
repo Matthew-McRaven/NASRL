@@ -1,0 +1,36 @@
+image: docker:19
+
+variables:
+  PROJECT_REPO: georgetowschool/NASRL
+  REMOTE_REPO: 10.0.0.8:15050
+
+  # Need to name images per commit to avoid docker-in-docker issues.
+  CI_VERSION: ci.${CI_COMMIT_SHORT_SHA}
+  LOCAL_CI_VERSION: ci.${CI_COMMIT_SHORT_SHA}.${CI_RUNNER_SHORT_TOKEN}
+
+  # Image that holds our library code.
+  NASRL_IMAGE_NAME: libnasrl
+  LOCAL_NASRL_TOOLS_IMAGE: georgetownschool/nasrl/libnasrl
+  REMOTE_NASRL_TOOLS_IMAGE: 10.0.0.8:15050/georgetownschool/nasrl/libnasrl
+
+before_script:
+  # Must log-in to NAS's GitLab docker registy.
+  # The value of these tokens can be seen on Settings>CI/CD>Variables.
+  - docker login -u ${CI_USER} -p ${CI_TOKEN} ${CI_REGISTRY}
+  - docker info
+
+
+
+stages:
+  - Build Library
+  - Test
+#########
+# Build the boost / python dependencies of out project.
+# All jobs use GIT_LFS_SKIP_SMUDGE, which prevents GIT LFS from pulling large data files.
+#########
+Build Dependencies:
+  stage: Build Library
+  needs: []
+  script:
+    - docker build -f ./BuildLibrary.Dockerfile -t ${REMOTE_NASRL_TOOLS_IMAGE}:${CI_VERSION} .
+    - docker push ${REMOTE_NASRL_TOOLS_IMAGE}:${CI_VERSION}
