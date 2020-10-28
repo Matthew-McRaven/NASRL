@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: e1-hellotorch
+  namespace: nasrl
+  labels:
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/name: hellotorch
+    app.kubernetes.io/component: experiment-1
+    app.kubernetes.io/part-of: nasrl
+spec:
+  completions: 16
+  parallelism: 8
+  template:
+    spec:
+      containers:
+      - name: nasrl
+        image: 10.0.0.8:15050/georgetownschool/nasrl/libnasrl:ci.e1353efe
+        command: ["bash", "-c"]
+        args: ["apt update && apt install -y curl &&\
+        curl -o main.py https://raw.githubusercontent.com/pytorch/examples/master/mnist/main.py &&\
+        python -u main.py"]
+        resources:
+          limits:
+            cpu: "4"
+          requests:
+            cpu: "4"
+      restartPolicy: Never

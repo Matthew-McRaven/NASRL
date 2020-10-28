@@ -2,12 +2,12 @@ apiVersion: batch/v1
 kind: Job
 
 metadata:
-  name: experiment-1
+  name: e1-helloworld
   namespace: nasrl
   labels:
     app.kubernetes.io/version: "1.0.0"
-    app.kubernetes.io/name: experiment-1
-    app.kubernetes.io/component: nasrl-my-area-here
+    app.kubernetes.io/name: hello-world
+    app.kubernetes.io/component: experiment-1
     app.kubernetes.io/part-of: nasrl
 spec:
   completions: 3
