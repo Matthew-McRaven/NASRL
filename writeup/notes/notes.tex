@@ -1,0 +1,270 @@
+\documentclass[american]{IEEEtran}   	% use "amsart" instead of "article" for AMSLaTeX format
+\usepackage{geometry}                		% See geometry.pdf to learn the layout options. There are lots.
+\geometry{letterpaper}                   		% ... or a4paper or a5paper or ... 
+%\geometry{landscape}                		% Activate for rotated page geometry
+%\usepackage[parfill]{parskip}    		% Activate to begin paragraphs with an empty line rather than an indent
+\usepackage{graphicx}				% Use pdf, png, jpg, or eps§ with pdflatex; use eps in DVI mode
+								% TeX will automatically convert eps --> pdf in pdflatex		
+\usepackage{amssymb}
+% For \say
+\usepackage{dirtytalk}
+% For vocal lists.
+\usepackage{enumitem}% http://ctan.org/pkg/enumitem
+%SetFonts
+
+%SetFonts
+
+\title{Talk Notes}
+\author{Matthew McRaven}
+%\date{}							% Activate to display a given date or no date
+
+\begin{document}
+\maketitle
+
+
+\newenvironment{changemargin}[2]{%
+\begin{list}{}{%
+\setlength{\topsep}{0pt}%
+\setlength{\leftmargin}{#1}%
+\setlength{\rightmargin}{#2}%
+\setlength{\listparindent}{\parindent}%
+\setlength{\itemindent}{\parindent}%
+\setlength{\parsep}{\parskip}%
+}%
+\item[]}{\end{list}}
+
+
+\section{Why Do We Care?}
+Humans can see a picture of a family member once, and immediately recognize them in many photos.
+Methods outside of few-shot learning and meta-learning need thousands to hundreds of presentations to learn these associations\cite{Wang_2020}.
+We usually account for this by gathering and presenting more data, but we can't always do this.
+Learning more effectively reduces the pressure to gather more data, allowing us to explore previously untenable problems\cite{Ravi2017OptimizationAA}
+
+FSL / Meta-Learning allows us to expand the reach of our ML algorithms\cite{Wang_2020}.
+We start with some prior knowledge, and can learn from few presentations of new data.
+Data tends to be a limiting factor in the application of DNNs in general, so having techniques to reduce data pressure expand the reach of the field.
+
+Right now, learning approaches are very data-inefficient\cite{wang2016learning}.
+They must consume a ton of data to get superhuman results.
+This does not scale.
+To increase data efficiency, we must bias the starting point of the network-under-test.
+We can do this by additional feature extraction, or we can learn what biases help us learn faster (\textit{meta-learning}).
+
+\textbf{Meta-learning is about accumulating knowledge between tasks}\cite{Ravi2017OptimizationAA}, while base-learning concerns learning \textit{within} a specific task.
+
+
+
+
+\section{K-Shot learning}
+We use the framework of few-shot learning because is a form of problem where you are attempting to learn given a finitely bounded amount of information\cite{Ravi2017OptimizationAA}.
+To be effective in these forms of problems we need to extract meaning from our inputs more effectively than what we see with typical DNN algorithms updating themselves with optimizers like ADAM.
+
+Comparisons between k-shot methods, (notably k=0) are difficult because there was no benchmark for a long time\cite{Xian_2017}.
+In ZSL, the test and training classes are entirely disjoint, like the difference between math problems on homework and a test.
+Issues arise with pretrained NN's (like imagenet).
+Suppose you use a pretrained feature extractor that has seen cows, and cows are one of your testing classes.
+Even though your classifier hasn't been trained on cows, part of your network has learned about cows, biasing results.
+We usually talk about k-shot learning as few-shot learning (FSL)\cite{Wang_2020}.
+
+Our dataset may not have equivalent-distributed inputs.
+Especially in the case of extreme classification, we may only have a handful of samples, say k.
+We want to be able to make generalizations about these rare categories given few observations\cite{Koch2015SiameseNN}.
+Take image on p2\cite{Koch2015SiameseNN} to describe.
+
+Siamese networks (like Siamese twins) consist of two upstream neural nets with identical, shared parameters.
+You feed in two distinct inputs to the network, and the output is some function of how similar the inputs are.
+In the case of \cite{Koch2015SiameseNN}, these are CNN's with pooling.
+The outputs of these networks are fed into a single fully connected layer, which supposedly computes the \textit{distance} between the two observations.
+
+I have a bunch of hyperparameters I need to sweep.
+This process takes forever, and for some tasks, evaluating which one is \say{best} is hard.
+Say, text generation.
+However, I could create a neural net that generates a neural network architecture.
+Use RL, get better, novel models\cite{zoph2016neural}.
+Idea: Sample a bunch of NN's, use REINFORCE to learn how child models' loss behaves WRT time.
+Reward child models who decrease their loss quickly, penalize those that get big.
+
+
+
+
+
+
+
+\section{MAML's}
+This formulation differs from previous meta-learning approaches in that there's only one set of parameters---previous formulations such as \cite{munkhdalai2017meta} use separate weights for the inner learner versus the outer-learner.
+\subsection{Probabilistic}
+Instead of outputting a definite value, learned system propose multiple solutions in the face of ambiguity\cite{finn2018probabilistic}.
+By measuring the variance in these outputs, you should be able to gauge the classifier's certainty in its output.
+However, modeling function distributions is hard.
+How do we represent uncertainty in millions of dimensions (high dimensionality from params), while keep computation efficiency?
+Build in probability (variational inference) to MAML.
+
+Flaw in MAML is that it assumes P(Task) is static, when in reality for most interesting tasks it is an infinitely growing set.
+Leads to catastrophic forgetting\cite{Wang_2020}.
+
+Downside with all MAML approaches is that in explicitly encodes how the meta-learning must take place---must use grad descent.
+If you want a self-attention based meta-learning (i.e. which task helped the most)\cite{mishra2017simple}, or to preserve weights\cite{Kirkpatrick_2017}, you're out of luck.
+
+Doesn't handle IL domain\cite{duan2017oneshot}.
+Must extend algorithm on your own.
+No explicit design for factoring in outside prior knowledge.
+
+
+
+
+
+
+\section{Other Metalearning}
+LEO drastically improve over MAML\cite{rusu2018metalearning}.
+It uses an autoencoder (which is trained via the meta-learning step) to generate parameters for the task set.
+Inner updates fudge with the decoding stage to push updates in the correct direction.
+By compressing training data, the dimensionality of the parameters that need to be meta-learned at each step are reduced.
+This increases stability and reduces overfitting.
+
+We have external-memory augmented neural networks (E)MANNs.
+These external memory devices are parameter-independent of the neural network---you can have as many or few items in the memory module without changing number of parameters in controller\cite{pmlr-v48-santoro16}.
+Not possible with LTSM, because the number of outputs directly corresponds to the number of parameters.
+The controller take input from the task, and outputs a sequence of indices/keys.
+The value returned by the memory subsystem (r) is a time-weighted sum over the memory subsystem subscripted by the keys.
+Using this information, we can then have another network that does fun stuff with the task input and the memory item.
+\textbf{Must preserve internal state across episodes!!\cite{mishra2017simple}}
+
+We can also interleave temporal convolution (convolutions that can reach to backward state but not forward ones) with soft attention to create a system with an infinite horizon that can summarize the important parts of the past\cite{mishra2017simple}.
+We're training a NN to make an observation, and figure out which points in time are most useful to this point.
+Is Meta-learning, because it learns how to extract information from past experiences.
+
+Another idea is Meta-networks.
+It features two split networks---one meta-learner that helps parameterize the other task learner\cite{munkhdalai2017meta}.
+Each network has two sets of weights, one that is evolved quickly and one that is evolved slowly.
+Slow weights are updated view REINFORCE, fast weights are updated by task loss.
+External memory (see \cite{pmlr-v48-santoro16}) is used to support long-term memory in the meta-learner.
+Applied to one-shot classification, not clear if algorithm extends to continuous control.
+Downside is that some level of structure in the learner is imposed, weights have to be setable by the meta-learner.
+Fast weight are generated by the meta-learner for each input presented to the base learner.
+Without slow weights (i.e. weights that persists between full epochs on a task), the meta-learner cannot produce weights for the base learner that converge.
+Even though the meta-learner is parameterized on task/all info, it can't generate weights on its own.
+
+On idea is that we can present a NN with a bunch of images that each belong to one class during training time\cite{Liu_2019}.
+We pick two random images from two random classes, and ask a GAN to blend the images.
+At testing time, we provide \texttt{K} samples from a novel class, and select a single source image to imitate.
+The output should be animal from the novel class in the pose of the animal from the source class.
+This is unsupervised because we don't have a \say{real} target output pair, we just have some labeled inputs.
+Page 5 of \cite{Liu_2019} contains an excellent example of 2-shot learning.
+
+
+
+\section{Multitask Learning / IL}
+One method is actor-mimic\cite{parisotto2015actormimic}.
+It looks a lot like DAGGER, in the fact that we have existing experiences policies to rely on.
+The goal is that we flatten the expert's actions to something that looks like a probability distribution (using softmax), and our optimization goal is to minimize the difference between the actor and the expert.
+We do this using policy based learning, so its a policy-grad method.
+Also we can create a second network that measures computes a regression between the 2nd to last layer of our expert and our actor, and attempt to minimize the differences.
+This forces the actor to recognize the same features as the expert.
+Is dagger except for multitask.
+Really this is few-shot learning.
+
+We are interested in imitation-based meta-learning\cite{duan2017oneshot}.
+We hope that we can show a robot a task once, and it can perfectly do that task in a different environment.
+Imitation allows us to communicate intent---I'm showing you what I care about.
+You don't have to decipher my meaning (i.e. natural language) or depend on my ability in communication.
+For example, I can't explain how to swim without demoing it---and IL is how baby humans learn new skills.
+
+To properly learn IL via FSL, \cite{duan2017oneshot} propose that we need specific NN architectures.
+\begin{description}[leftmargin=1cm, style=nextline]
+	\item[Demonstration Network]
+	This network receives a demonstration (episode) as an input, and produces a lower-dimensional (latent) embedding that represents the demonstration.
+	The size of the embedding varies with with the length of the demonstration and the complexity of the task.
+	
+	\item[Context Network]
+	Most important piece.
+	Maintains info about current state using LTSM neurons.
+	Receives input from demonstration network, and memory about state from LTSM.
+	Uses soft-attention to generate another embedding whose size is independent of the length of the demonstration received.
+	
+	\item[Manipulation Network]
+	Feed context embedding into FF MLP NN.
+	Generates a meaningful action (like values on a motor) depending on problem type.
+\end{description}
+
+The \say{multiple-tasks} solved by \cite{duan2017oneshot} are all of the same type---stack blocks.
+The placement, number, and order of blocks changed each time.
+
+
+We can take an existing (set) of pertained models, and use them to train a simpler neural net\cite{rusu2015policy}.
+To do so, we attempt to minimize the difference in the student's action/Q distribution from the teacher's distribution.
+That is, we minimize the KL divergence.
+This can yield models that are 15x smaller with similar performance to the originally.
+Crazily, these \say{distilled} models can be even better than the expert models.
+
+
+
+\section{Forget me now}
+Catastrophic forgetting is when a continually learning agent tends to forget how to do a task it hasn't seen in a while\cite{Kirkpatrick_2017}.
+We counter this is DNN's by randomizing our minibatches.
+For task-based learning, we prevent CF by training multiple tasks at the same time (multitask learning), or by using experience buffers that can hold all rollouts for all task types for an epoch\cite{Kirkpatrick_2017,parisotto2015actormimic}. 
+
+We can have a meta-network parameterize a recurrent network\cite{wang2016learning}.
+Even if you hold weights constant, the RNN will act continue to improve WRT time.
+This means that the RNN learned an episodic policy (oh hey that's an implicit REINFORCE).
+
+The SOTA way to fix this is by copying neurons.
+When a new task is learned, some neurons reduce their plasticity (i.e. become less able to change).
+This leads to the persistence of a task ability a long time after learning it.
+Elastic weight consolidation\cite{rusu2018metalearning} mimics this.
+You determine which weights are important to a task, and then minimize the updates to those weights when out-of-task.
+This lead to SOTA performance on consecutive training of multiple games, however performance is strictly worse than training multiple different agents.
+However resources are saved, and the agent can predict which task it is doing.
+
+We can look for neural net components that are monotonically better suited to a particular application that ones chosen by humans.
+Drawing from research on piecewise CNN's, \cite{ramach2017searching} generates different activation functions using RNN's.
+The generator is trained via PPO to find the shape/structure of activation functions that perform well.
+This build off of work that uses RNNs to generate CNNs for improved performance on image reco\cite{zoph2016neural}.
+
+
+
+
+\section{Applications}
+An optimizer can do no better than a random agent in general\cite{585893}.
+So, our choice of optimizer \& hyperparams is highly dependent on our problem domain.
+So instead of having a fixed optimization policy, lets parameterize our optimization policy\cite{andrychowicz2016learning}.
+Our adapatation step will update the learner using update provided by the meta-learner.
+Our meta-learning step will update itself using gradient information for the learner.
+
+Our tasks may not have equidistributed values.
+This tends to be underfitting by neural nets.
+Highly recommend to apply intelligent batch normalization\cite{ioffe2015batch} by authors who attempted multi-task learning using RL.
+
+\section{We need Meta-Learning}
+\say{Networks may learn to effectively search for and discover new mental models or intuitive theories, and these improved models will, in turn, enable  subsequent  learning,  allowing  systems  that  learn-to-learn  –  using  previous  knowledge  to make richer inferences from very small amounts of training data.}\cite{Lake_2016}.
+That is, learning-to-learn is the distinctive feature of biological intelligence.
+Being able to causally model the world is a hallmark of \textit{human} intelligence.
+I can create descriptions of how a ball is going to fall and test these predicitions.
+Compared to ML, human learning is remarkably data-efficient.
+\textit{Model building is important}.
+
+Weight agnostic neural networks focus on NN designs that perform remarkably better than change with no weight training\cite{gaier2019weight}.
+This somewhat relate to GNNs, because human neurons can be viewed as a graph (called a\textit{connectome}).
+By allowing a NN to grow a network to encode skills, we should be able to encode an unlimited amount of information if we allow the graph to grow.
+
+\section{Vocab}
+
+\begin{description}[leftmargin=1cm, style=nextline]
+	\item[Transfer Learning]
+		Re-using a problem structure from one task to solve a different task\cite{andrychowicz2016learning}.
+	\item[Metalearning]
+		\say{Meta-learning is then defined as an effect whereby the agent improves its performance in each new task more rapidly, on average, than in past tasks}.\cite{wang2016learning}. 
+		Usually realized as a two-part system: one that adapts to each task quickly, and one that works cross-task to improve performance of the per-task updates. 
+		Meta-agent is allowed access to global and task-local data, while the base-agent only gets task-local information plus some form of feedback (weight updates, inputs, etc) from the meta-agent\cite{Ravi2017OptimizationAA}.
+		Another way of phrasing this is that we are trying to learn the algorithm that best fits the problem\cite{duan2017oneshot}.
+	\item[Catastrophic Forgetting]
+		Catastrophic forgetting is when a continually learning agent tends to forget how to do a task it hasn't seen in a while\cite{Kirkpatrick_2017}.
+		Also called \textit{catastrophic interference}\cite{pmlr-v48-santoro16}.
+\end{description}
+\newpage
+
+\nocite{*}
+\bibliographystyle{unsrt}
+\bibliography{../notes}
+
+
+\end{document}  

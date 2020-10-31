@@ -1,6 +1,18 @@
 # Ignore VS code files
 *.code-workspace
 .vscode/
+.DS_Store
+
+# Ignore latez files
+
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+*.pdf
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
