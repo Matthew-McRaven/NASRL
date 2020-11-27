@@ -1,7 +1,7 @@
 image: docker:19
 
 variables:
-  PROJECT_REPO: georgetowschool/NASRL
+  PROJECT_REPO: matthew-mcraven/NASRL
   REMOTE_REPO: 10.0.0.8:15050
 
   # Need to name images per commit to avoid docker-in-docker issues.
@@ -9,9 +9,9 @@ variables:
   LOCAL_CI_VERSION: ci.${CI_COMMIT_SHORT_SHA}.${CI_RUNNER_SHORT_TOKEN}
 
   # Image that holds our library code.
-  NASRL_IMAGE_NAME: libnasrl
-  LOCAL_NASRL_TOOLS_IMAGE: georgetownschool/nasrl/libnasrl
-  REMOTE_NASRL_TOOLS_IMAGE: 10.0.0.8:15050/georgetownschool/nasrl/libnasrl
+  IMAGE_NAME: NASRL
+  LOCAL_IMAGE_NAME: matthew-mcraven/NASRL/NASRL
+  REMOTE_IMAGE_NAME: 10.0.0.8:15050/matthew-mcraven/NASRL/NASRL
 
 before_script:
   # Must log-in to NAS's GitLab docker registy.
@@ -24,6 +24,7 @@ before_script:
 stages:
   - Build Library
   - Test
+  - Deploy
 #########
 # Build the boost / python dependencies of out project.
 # All jobs use GIT_LFS_SKIP_SMUDGE, which prevents GIT LFS from pulling large data files.
@@ -32,5 +33,22 @@ Build Dependencies:
   stage: Build Library
   needs: []
   script:
-    - docker build -f ./BuildLibrary.Dockerfile -t ${REMOTE_NASRL_TOOLS_IMAGE}:${CI_VERSION} .
-    - docker push ${REMOTE_NASRL_TOOLS_IMAGE}:${CI_VERSION}
+    - docker build -f ./BuildLibrary.Dockerfile -t ${REMOTE_IMAGE_NAME}:${CI_VERSION} .
+    - docker push ${REMOTE_IMAGE_NAME}:${CI_VERSION}
+
+Run Tests:
+  stage: Test
+  needs: [Build Dependencies]
+  script:
+    - docker pull ${REMOTE_IMAGE_NAME}:${CI_VERSION}
+    - docker run --rm ${REMOTE_IMAGE_NAME}:${CI_VERSION}  /bin/sh -c "pip install -r tests/requirements.txt && python -m unittest discover tests"
+    
+Deploy to PyPi:
+  rules:
+    - if: $CI_COMMIT_TAG
+  stage: Deploy
+  needs: [Build Dependencies, Run Tests]
+  script:
+    - docker pull ${REMOTE_IMAGE_NAME}:${CI_VERSION}
+    - echo "-u ${TWINE_USERNAME} -p ${TWINE_PASSWORD}"
+    - docker run --rm ${REMOTE_IMAGE_NAME}:${CI_VERSION} /bin/sh -c "pip install twine && python setup.py sdist && twine upload -u ${TWINE_USERNAME} -p ${TWINE_PASSWORD} dist/*"
