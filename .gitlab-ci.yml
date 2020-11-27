@@ -1,7 +1,7 @@
 image: docker:19
 
 variables:
-  PROJECT_REPO: matthew-mcraven/NASRL
+  PROJECT_REPO: matthew-mcraven/nasrl
   REMOTE_REPO: 10.0.0.8:15050
 
   # Need to name images per commit to avoid docker-in-docker issues.
@@ -9,9 +9,9 @@ variables:
   LOCAL_CI_VERSION: ci.${CI_COMMIT_SHORT_SHA}.${CI_RUNNER_SHORT_TOKEN}
 
   # Image that holds our library code.
-  IMAGE_NAME: NASRL
-  LOCAL_IMAGE_NAME: matthew-mcraven/NASRL/NASRL
-  REMOTE_IMAGE_NAME: 10.0.0.8:15050/matthew-mcraven/NASRL/NASRL
+  IMAGE_NAME: nasrl
+  LOCAL_IMAGE_NAME: matthew-mcraven/nasrl/nasrl
+  REMOTE_IMAGE_NAME: 10.0.0.8:15050/matthew-mcraven/nasrl/nasrl
 
 before_script:
   # Must log-in to NAS's GitLab docker registy.
