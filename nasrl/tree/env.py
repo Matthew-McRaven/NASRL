@@ -9,6 +9,7 @@ import torch
 import librl.replay
 import librl.nn.core, librl.nn.classifier
 import librl.task, librl.task.classification
+import librl.train.classification.label
 
 from ..task import *
 from .actions import *
@@ -126,6 +127,7 @@ class JointClassificationEnv(gym.Env):
             else: raise NotImplementedError("Not a valid action")
 
         # Require that the new state yield +'ve image size.
+        # TODO: Debug if old state is really restored correctly.
         if not self.cnn_check_size(self.cnn_state):
             self.cnn_state = self.cnn_old_state
             return (self.convert_state_numpy(self.cnn_state), self.mlp_state), -1., False, {}
@@ -141,10 +143,10 @@ class JointClassificationEnv(gym.Env):
         t, v = self.train_data_iter, self.validation_data_iter
         cel = torch.nn.CrossEntropyLoss()
         inner_task = librl.task.classification.ClassificationTask(classifier=class_net, criterion=cel, train_data_iter=t, validation_data_iter=v)
-        correct, total = test_gen_classifier(inner_task)
+        correct_list, total_list = librl.train.classification.label.train_single_label_classifier([inner_task])
         # Reward is % accuracy on validation set.
         state = (self.convert_state_numpy(self.cnn_state), self.mlp_state)
-        return state, 100 * correct / total, False, {}
+        return state, 100 * correct_list[0] / total_list[0], False, {}
 
 # Classification where only CNN's will be used.
 class CNNClassificationEnv(JointClassificationEnv):

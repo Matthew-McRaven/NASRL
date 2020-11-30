@@ -13,7 +13,6 @@ import torchvision.datasets, torchvision.transforms
 
 import nasrl.task
 import nasrl.tree.actor, nasrl.tree.env
-import nasrl.tree.train
 
 # Integration tests that demonstrates generating MLP's, CNN's,
 # and a mixture to solve the MNIST classification using tree-based policies.
@@ -44,7 +43,7 @@ class MNISTClassification(unittest.TestCase):
         dist = librl.task.TaskDistribution()
         dist.add_task(librl.task.Task.Definition(librl.task.ContinuousGymTask, env=env, agent=agent, episode_length=2, 
             replay_ctor=librl.replay.episodic.ProductEpisode))
-        nasrl.tree.train.cc_episodic_trainer(self.hypers, dist, librl.train.cc.policy_gradient_step)
+        librl.train.train_loop.cc_episodic_trainer(self.hypers, dist, librl.train.cc.policy_gradient_step)
 
     def test_generate_cnn(self):
         transformation = torchvision.transforms.Compose([
@@ -64,7 +63,7 @@ class MNISTClassification(unittest.TestCase):
         dist = librl.task.TaskDistribution()
         dist.add_task(librl.task.Task.Definition(librl.task.ContinuousGymTask, env=env, agent=agent, episode_length=3, 
             replay_ctor=librl.replay.episodic.ProductEpisode))
-        nasrl.tree.train.cc_episodic_trainer(self.hypers, dist, librl.train.cc.policy_gradient_step)
+        librl.train.train_loop.cc_episodic_trainer(self.hypers, dist, librl.train.cc.policy_gradient_step)
 
     def test_generate_all(self):
         transformation = torchvision.transforms.Compose([
@@ -90,7 +89,7 @@ class MNISTClassification(unittest.TestCase):
         dist = librl.task.TaskDistribution()
         dist.add_task(librl.task.Task.Definition(librl.task.ContinuousGymTask, env=env, agent=agent, episode_length=3, 
             replay_ctor=librl.replay.episodic.ProductEpisode))
-        nasrl.tree.train.cc_episodic_trainer(self.hypers, dist, librl.train.cc.policy_gradient_step)
+        librl.train.train_loop.cc_episodic_trainer(self.hypers, dist, librl.train.cc.policy_gradient_step)
 
 if __name__ == "__main__":
     unittest.main()
