@@ -42,9 +42,10 @@ class ActorCriticMNIST(unittest.TestCase):
         critic_net= librl.nn.critic.ValueCritic(critic_kernel)
         return env, critic_net, policy_net
 
-   
-    def test_generate_mlp_pgb(self):
-        self.pgb_helper(*self.mlp_helper())
+
+    def test_generate_mlp(self):
+        for idx, fn in enumerate([self.pgb_helper, self.ppo_helper]):
+            with self.subTest(i=idx): fn(*self.mlp_helper())
 
     def cnn_helper(self):
         env = nasrl.tree.env.CNNClassificationEnv((1,28,28), 10, torch.nn.CrossEntropyLoss(), self.t_loaders, self.v_loaders)
@@ -56,9 +57,9 @@ class ActorCriticMNIST(unittest.TestCase):
         critic_net= librl.nn.critic.ValueCritic(critic_kernel)
         return env, critic_net, policy_net
 
-    
     def test_generate_cnn(self):
-        self.pgb_helper(*self.mlp_helper())
+        for idx, fn in enumerate([self.pgb_helper, self.ppo_helper]):
+            with self.subTest(i=idx): fn(*self.cnn_helper())
 
     def joint_helper(self):
         env = nasrl.tree.env.JointClassificationEnv((1,28,28), 10, 10, torch.nn.CrossEntropyLoss(), self.t_loaders, self.v_loaders)
@@ -76,13 +77,23 @@ class ActorCriticMNIST(unittest.TestCase):
         critic_kernel = nasrl.nn.BilinearAdapter(cnn_policy_kernel, mlp_policy_kernel, 10)
         critic_net= librl.nn.critic.ValueCritic(critic_kernel)
         return env, critic_net, policy_net
-    
-    def test_generate_all_pgb(self):
-        self.pgb_helper(*self.joint_helper())
+
+    def test_generate_all(self):
+        for idx, fn in enumerate([self.pgb_helper, self.ppo_helper]):
+            with self.subTest(i=idx): fn(*self.joint_helper())
     
     
     def pgb_helper(self, env, critic_net, policy_net):
         actor_loss = librl.nn.pg_loss.PGB(critic_net, explore_bonus_fn=librl.reward.basic_entropy_bonus())
+        agent = librl.agent.pg.ActorCriticAgent(critic_net, policy_net, actor_loss=actor_loss)
+        agent.train()
+        dist = librl.task.TaskDistribution()
+        dist.add_task(librl.task.Task.Definition(librl.task.ContinuousGymTask, env=env, agent=agent, episode_length=1, 
+            replay_ctor=librl.replay.episodic.ProductEpisode))
+        librl.train.train_loop.cc_episodic_trainer(self.hypers, dist, librl.train.cc.policy_gradient_step)
+    
+    def ppo_helper(self, env, critic_net, policy_net):
+        actor_loss = librl.nn.pg_loss.PPO(critic_net, explore_bonus_fn=librl.reward.basic_entropy_bonus())
         agent = librl.agent.pg.ActorCriticAgent(critic_net, policy_net, actor_loss=actor_loss)
         agent.train()
         dist = librl.task.TaskDistribution()

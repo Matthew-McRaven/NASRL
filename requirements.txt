@@ -2,7 +2,7 @@ cloudpickle==1.6.0
 dataclasses==0.6
 future==0.18.2
 gym==0.17.3
-librl==0.2.0
+librl==0.2.1
 more-itertools==8.6.0
 numpy==1.19.2
 overrides==3.1.0

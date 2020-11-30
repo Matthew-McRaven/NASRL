@@ -35,4 +35,5 @@ class TreePolicy:
     def sample(self, count):
         return self.decision_tree.sample(count, self.weights)
     def log_prob(self, actions):
-        return [action.log_prob(self.weights) for action in actions]
+        # librl expects a tensor of logprobs matching the shape of actions.
+        return torch.stack([action.log_prob(self.weights) for action in actions])
