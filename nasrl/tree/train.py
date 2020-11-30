@@ -1,4 +1,3 @@
-
 import torch
 import numpy as np
 
@@ -10,7 +9,7 @@ import librl.utils
 # than a tensor of actual values.
 class WeirdActionEpisode:
     def __init__(self, obs_space, episode_length=200, device='cpu'):
-        self.state_buffer = torch.zeros([episode_length, *obs_space.shape], dtype=librl.utils.convert_np_torch(obs_space.dtype)).to(device) # type: ignore
+        self.state_buffer = np.full([episode_length], None, dtype=object)# type: ignore
         self.action_buffer = np.full([episode_length], None, dtype=object)# type: ignore
         self.logprob_buffer = torch.zeros([episode_length], dtype=torch.float32).to(device) # type: ignore
         self.reward_buffer = torch.zeros([episode_length], dtype=torch.float32).to(device) # type: ignore
@@ -40,20 +39,25 @@ def sample_trajectories(task):
     task.clear_trajectories()
     task.init_env()
     for i in range(task.trajectory_count):
-        state = torch.tensor(task.env.reset()).to(task.device) # type: ignore
+        state = task.env.reset()
+        if torch.is_tensor(state): state = state.to(task.device)
+        if isinstance(state, np.ndarray): state = torch.tensor(state).to(task.device) # type: ignore
+        else: state = [torch.tensor(state).to(task.device) for state in state]
         episode = WeirdActionEpisode(task.env.observation_space, task.episode_length)
         episode.log_done(task.episode_length + 1)
         for t in range(task.episode_length):
             
             episode.log_state(t, state)
-
             action, logprob_action = task.agent.act(state)
             #print(action)
             episode.log_action(t, action, logprob_action)
             if task.agent.policy_based: episode.log_policy(t, task.agent.policy_latest)
             state, reward, done, _ = task.env.step(action)
             if task.agent.allow_callback: task.agent.act_callback(state=state, reward=reward)
-            if not torch.is_tensor(state): state = torch.tensor(state).to(task.device) # type: ignore
+            if not torch.is_tensor(state):
+                if isinstance(state, np.ndarray): state = torch.tensor(state).to(task.device) # type: ignore
+                else: state = [torch.tensor(state).to(task.device) for state in state]
+                
             if not torch.is_tensor(reward): reward = torch.tensor(reward).to(task.device) # type: ignore
 
             episode.log_rewards(t, reward)

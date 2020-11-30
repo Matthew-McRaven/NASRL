@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.distributions, torch.nn.init
 import torch.optim
 
-from .policy import CNNDecisionTree, MLPDecisionTree, TreePolicy
+from .policy import CNNDecisionTree, FullDecisionTree, MLPDecisionTree, TreePolicy
 
 # Actor that generates weightings for nasrl.tree.MLPDecisionTree
 class MLPTreeActor(nn.Module):
@@ -43,8 +43,7 @@ class MLPTreeActor(nn.Module):
     def restore_hidden(self, state=None):
         assert self.recurrent()
         self.neural_module.restore_hidden(state)
-
-    def forward(self, input):
+    def get_policy_weights(self, input):
         output = self.neural_module(input).view(-1, self.__input_size)
 
         # TODO: Figure out how to make inputs/outputs sane sizes.
@@ -56,9 +55,13 @@ class MLPTreeActor(nn.Module):
         # TODO: Make min/max number of neurons a parameter of the NN.
         # Probably pull from observation space.
         base = 25
-        max = torch.clamp((self.layer_size(output)+1)**2 + base, 0, 4000)
+        max = torch.clamp((self.layer_size(output)+1)**2 + base, 0, 400)
         weight_dict['mlp_size_dist'] = torch.distributions.Uniform(base, max)
-        #print(weight_dict)
+
+        return weight_dict
+
+    def forward(self, input):
+        weight_dict = self.get_policy_weights(input)
         # Encapsulate our poliy in an object so downstream classes don't
         # need to know what kind of distribution to re-create.
         policy = TreePolicy(self.decision_tree, weight_dict)
@@ -114,7 +117,7 @@ class CNNTreeActor(nn.Module):
         assert self.recurrent()
         self.neural_module.restore_hidden(state)
 
-    def forward(self, input):
+    def get_policy_weights(self, input):
         output = self.neural_module(input).view(-1, self.__input_size)
 
         # TODO: Figure out how to make inputs/outputs sane sizes.
@@ -137,11 +140,13 @@ class CNNTreeActor(nn.Module):
         weight_dict['padding_dist'] = torch.distributions.Uniform(min, sane(self.padding_dist_layer(output), 8))
         weight_dict['dilation_dist'] = torch.distributions.Uniform(min, sane(self.dilation_dist_layer(output), 2))
         
-        #print(weight_dict)
-        # Encapsulate our poliy in an object so downstream classes don't
+        return weight_dict
+        
+    def forward(self, input):
+        # Encapsulate our policy in an object so downstream classes don't
         # need to know what kind of distribution to re-create.
+        weight_dict = self.get_policy_weights(input)
         policy = TreePolicy(self.decision_tree, weight_dict)
-
         actions = policy.sample(1)
         #print(actions)
         # Each actions is drawn independtly of others, so joint prob

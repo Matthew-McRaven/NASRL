@@ -88,7 +88,7 @@ class JointClassificationEnv(gym.Env):
             np_state[idx, field_idx.stride] = layer.stride
             np_state[idx, field_idx.dilation] = layer.dilation
             np_state[idx, field_idx.padding] = layer.padding
-        #print(np_state)
+        print(np_state)
         return np_state
 
     # Check that a given state has a non-zero output size.
@@ -130,7 +130,7 @@ class JointClassificationEnv(gym.Env):
             self.cnn_state = self.cnn_old_state
             return (self.convert_state_numpy(self.cnn_state), self.mlp_state), -1., False, {}
         mlp_state = [x for x in self.mlp_state if x>0]
-        print(mlp_state)
+        #print(mlp_state)
 
         # Create a classification network using our current state.
         class_kernel = create_nn_from_def(self.data_dim, self.cnn_state, mlp_state)
