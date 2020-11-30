@@ -216,7 +216,6 @@ class JointTreeActor(nn.Module):
         weight_dict = self.get_policy_weights(cnn_input, mlp_input)
         policy = TreePolicy(self.decision_tree, weight_dict)
         actions = policy.sample(1)
-        print(actions)
         # Each actions is drawn independtly of others, so joint prob
         # is all of them multiplied together. However, since we have logprobs,
         # we need to sum instead.
