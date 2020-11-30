@@ -20,9 +20,9 @@ def CNNDecisionTree():
     node_conv_del = NodeConvDel() # Needs 'conv_count'
     # Needs 'conv_count', 'kernel_dist', 'channel_dist', 'stride_dist', 'padding_dist', 'dilation_dist'
     node_conv_add_conv = NodeConvAdd() 
-    # Needs 'conv_count', 'pool_type', 'kernel_dist', 'stride_dist', 'padding_dist', 'dilation_dist'
-    node_conv_add_max = NodePoolAdd()
-    node_conv_add_avg = NodePoolAdd()
+    # Needs 'conv_count', 'kernel_dist', 'stride_dist', 'padding_dist', 'dilation_dist'
+    node_conv_add_max = NodePoolAdd('max')
+    node_conv_add_avg = NodePoolAdd('avg')
     node_conv_add = ProbabalisticBranch([node_conv_add_conv, node_conv_add_max, node_conv_add_avg], ['w_conv_add_conv', 'w_conv_add_max', 'w_conv_add_avg'])
     return ProbabalisticBranch([node_conv_del, node_conv_add], ['w_conv_del', 'w_conv_add'])
 

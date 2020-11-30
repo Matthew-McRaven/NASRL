@@ -68,7 +68,6 @@ def sample_trajectories(task):
 def cc_episodic_trainer(train_info, task_dist, train_fn):
     for epoch in range(train_info['epochs']):
         task_samples = task_dist.sample(train_info['task_count'])
-        print(len(task_samples))
         train_fn(task_samples)
         rewards = len(task_samples) * [None]
         for idx, task in enumerate(task_samples): 

@@ -38,7 +38,7 @@ class ProbabalisticBranch(ProbablisticNode):
     def sample(self, count, weight_dict):
         actions = []
         dist = self._get_dist(weight_dict)
-        for idx in dist.sample(count,):
+        for idx in dist.sample((count,)):
             actions.extend(self.node_list[idx].sample(1, weight_dict))
         return actions
 
