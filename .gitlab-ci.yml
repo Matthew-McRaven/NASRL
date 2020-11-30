@@ -41,7 +41,7 @@ Run Tests:
   needs: [Build Dependencies]
   script:
     - docker pull ${REMOTE_IMAGE_NAME}:${CI_VERSION}
-    - docker run --rm ${REMOTE_IMAGE_NAME}:${CI_VERSION}  /bin/sh -c "pip install -r tests/requirements.txt && python -m unittest discover tests"
+    - docker run --rm ${REMOTE_IMAGE_NAME}:${CI_VERSION}  /bin/sh -c "pip wheel -e . && python -m unittest discover tests"
     
 Deploy to PyPi:
   rules:

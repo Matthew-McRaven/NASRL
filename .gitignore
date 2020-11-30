@@ -2,6 +2,7 @@
 *.code-workspace
 .vscode/
 .DS_Store
+*.whl
 
 # Ignore latez files
 
