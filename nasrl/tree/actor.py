@@ -155,3 +155,70 @@ class CNNTreeActor(nn.Module):
         log_prob = sum(policy.log_prob(actions)) # type: ignore
 
         return actions, log_prob, policy
+
+class JointTreeActor(nn.Module):
+    # In order to choose weights for `w_conv` and `w_mlp`, we need to consider both CNN and MLP network configs.
+    # Enter the fusion_kernel. The fusion_kernel should take as arguments the full CNN and MLP network descrptions.
+    def __init__(self, cnn_module, mlp_module, fusion_kernel,  observation_space, output_dimension=(10,)):
+        super(JointTreeActor, self).__init__()
+        self.observation_space = observation_space
+        self.decision_tree = FullDecisionTree()
+        self.cnn_actor = CNNTreeActor(cnn_module, observation_space[0])
+        self.mlp_actor = MLPTreeActor(mlp_module, observation_space[1])
+        self.fusion_kernel = fusion_kernel
+
+        self.input_dimension = list(more_itertools.always_iterable(fusion_kernel.output_dimension))
+        self.__input_size = functools.reduce(lambda x,y: x*y, self.input_dimension, 1)
+
+        self.output_dimension = output_dimension
+        self.__output_size = functools.reduce(lambda x,y: x*y, self.output_dimension, 1)
+        self.__output_size = torch.tensor(self.__output_size, requires_grad=True, dtype=torch.float)
+        self.w_mlp = nn.Linear(self.__input_size, 1)
+        self.w_conv = nn.Linear(self.__input_size, 1)
+
+        # Initialize NN
+        for x in self.parameters():
+            if x.dim() > 1:
+                nn.init.kaiming_normal_(x)
+
+    def recurrent(self):
+        return self.cnn_module.recurrent() or self.mlp_module.recurrent()
+        
+    def save_hidden(self):
+        ret = {}
+        assert self.recurrent()
+        if self.cnn_module.recurrent(): ret[id(self.cnn_module)] = self.cnn_module.save_hidden()
+        if self.mlp_module.recurrent(): ret[id(self.mlp_module)] = self.mlp_module.save_hidden()
+        return ret
+
+    def restore_hidden(self, state_dict=None):
+        if self.cnn_module.recurrent():
+            id_cnn = id(self.cnn_module)
+            if state_dict != None and id_cnn in state_dict: self.cnn_module.restore_hidden(state_dict[id_cnn])
+            else: self.cnn_module.restore_hidden()
+        if self.mlp_module.recurrent():
+            id_mlp = id(self.mlp_module)
+            if state_dict != None and id_mlp in state_dict: self.mlp_module.restore_hidden(state_dict[id_mlp])
+            else: self.mlp_module.restore_hidden()
+
+    def get_policy_weights(self, cnn_input, mlp_input):
+        weight_dict = {}
+        weight_dict.update(self.cnn_actor.get_policy_weights(cnn_input))
+        weight_dict.update(self.mlp_actor.get_policy_weights(mlp_input))
+        output = self.fusion_kernel(cnn_input, mlp_input)
+        weight_dict['w_mlp'] = self.w_mlp(output)
+        weight_dict['w_conv'] = self.w_conv(output)
+
+        return weight_dict
+
+    def forward(self, input):
+        cnn_input, mlp_input = input
+        weight_dict = self.get_policy_weights(cnn_input, mlp_input)
+        policy = TreePolicy(self.decision_tree, weight_dict)
+        actions = policy.sample(1)
+        print(actions)
+        # Each actions is drawn independtly of others, so joint prob
+        # is all of them multiplied together. However, since we have logprobs,
+        # we need to sum instead.
+        log_prob = sum(policy.log_prob(actions)) # type: ignore
+        return actions, log_prob, policy
