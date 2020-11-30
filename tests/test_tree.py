@@ -1,9 +1,10 @@
 import unittest
 import functools
+from librl import replay
 
 import librl.agent.pg
 import librl.nn.core, librl.nn.actor
-import librl.reward
+import librl.reward, librl.replay.episodic
 import librl.task, librl.task.cc
 import librl.train.train_loop, librl.train.cc
 import librl.utils
@@ -42,7 +43,7 @@ class MNISTClassification(unittest.TestCase):
         # Construct meta-task
         dist = librl.task.TaskDistribution()
         dist.add_task(librl.task.Task.Definition(librl.task.ContinuousGymTask, env=env, agent=agent, episode_length=2, 
-            sample_fn = nasrl.tree.train.sample_trajectories))
+            replay_ctor=librl.replay.episodic.ProductEpisode))
         nasrl.tree.train.cc_episodic_trainer(self.hypers, dist, librl.train.cc.policy_gradient_step)
 
     def test_generate_cnn(self):
@@ -62,7 +63,7 @@ class MNISTClassification(unittest.TestCase):
         # Construct meta-task
         dist = librl.task.TaskDistribution()
         dist.add_task(librl.task.Task.Definition(librl.task.ContinuousGymTask, env=env, agent=agent, episode_length=3, 
-            sample_fn = nasrl.tree.train.sample_trajectories))
+            replay_ctor=librl.replay.episodic.ProductEpisode))
         nasrl.tree.train.cc_episodic_trainer(self.hypers, dist, librl.train.cc.policy_gradient_step)
 
     def test_generate_all(self):
@@ -88,7 +89,7 @@ class MNISTClassification(unittest.TestCase):
         # Construct meta-task
         dist = librl.task.TaskDistribution()
         dist.add_task(librl.task.Task.Definition(librl.task.ContinuousGymTask, env=env, agent=agent, episode_length=3, 
-            sample_fn = nasrl.tree.train.sample_trajectories))
+            replay_ctor=librl.replay.episodic.ProductEpisode))
         nasrl.tree.train.cc_episodic_trainer(self.hypers, dist, librl.train.cc.policy_gradient_step)
 
 if __name__ == "__main__":
