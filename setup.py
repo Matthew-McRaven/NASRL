@@ -2,7 +2,7 @@ from distutils.core import setup
 from setuptools import find_packages
 
 install_reqs = []
-install_reqs.extend(["networkx ~= 2.5", "torch ~= 1.6.0", "torchvision ~= 0.7.0", "librl == 0.2.0"])
+install_reqs.extend(["networkx ~= 2.5", "torch ~= 1.6.0", "torchvision ~= 0.7.0", "librl == 0.2.0", "pytest ~= 6.1"])
 setup(name='nasrl',
       version='0.2.2',
       description='Library code for our NAS-RL project.',
