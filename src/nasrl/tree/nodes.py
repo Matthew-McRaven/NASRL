@@ -75,7 +75,6 @@ class NodeConvAdd(ProbabilisticLeaf):
         logprob.append(p_dist.log_prob(action.conv_def.padding))
         logprob.append(d_dist.log_prob(action.conv_def.dilation))
         slp = sum(logprob)
-        print(f"slp={slp}")
         return slp
 
 # Add a pooling layer to a CNN.
@@ -111,5 +110,4 @@ class NodePoolAdd(ProbabilisticLeaf):
         if not self.pool_type == 'avg': 
             logprob.append(d_dist.log_prob(action.conv_def.dilation))
         slp = sum(logprob)
-        print(f"slp={slp}")
         return slp
