@@ -46,7 +46,7 @@ class type_idx(enum.Enum):
 # Classification while jointly building CNN's and MLP's
 class JointClassificationEnv(gym.Env):
     def __init__(self, data_dim, cnn_count, mlp_count, inner_loss=None, train_data_iter=None, 
-    validation_data_iter=None, classes=10, reward_fn=nasrl.reward.Linear
+    validation_data_iter=None, classes=10, reward_fn=nasrl.reward.Linear, adapt_steps=3
     ):
         super(JointClassificationEnv, self).__init__()
         assert not isinstance(train_data_iter, torch.utils.data.DataLoader) # type: ignore
@@ -58,6 +58,7 @@ class JointClassificationEnv(gym.Env):
 
         self.classes = classes
         self.reward_fn = reward_fn
+        self.adapt_steps = adapt_steps
 
         # Limit the size of a neural network.
         # TODO: Actually respect this limit.
@@ -158,22 +159,30 @@ class JointClassificationEnv(gym.Env):
         t, v = self.train_data_iter, self.validation_data_iter
         cel = torch.nn.CrossEntropyLoss()
         inner_task = librl.task.classification.ClassificationTask(classifier=class_net, criterion=cel, train_data_iter=t, validation_data_iter=v)
-        correct_list, total_list = librl.train.classification.label.train_single_label_classifier([inner_task])
+        
+        correct, total = [], []
+        # TODO: Only perform validation step on `last` step.
+        for _ in range(self.adapt_steps + 1):
+            inner_correct, inner_total = librl.train.classification.label.train_single_label_classifier([inner_task])
+            correct.extend(inner_correct), total.extend(inner_total)
+
         state = (self.convert_state_numpy(self.cnn_state), self.mlp_state)
-        reward = self.reward_fn(correct_list[0], total_list[0], self.classes, classifier=class_net, cnn_layers=len(self.cnn_state), mlp_layers=len(mlp_state))
+        reward = self.reward_fn(correct[-1], total[-1], self.classes, classifier=class_net, 
+            cnn_layers=len(self.cnn_state), mlp_layers=len(mlp_state))
+        
         # Collate "extra info" that may be needed for logging.
-        ret_dict = {'params':nasrl.reward.count_params(class_net), 'accuracy':correct_list[0]/total_list[0]}
-        if mlp_state: ret_dict.update({"mlp_layers": mlp_state})
-        if self.cnn_state: ret_dict.update({"mlp_layers": self.convert_state_numpy(self.cnn_state)})
+        ret_dict = {'params':nasrl.reward.count_params(class_net),
+            'accuracy':list(map(lambda x,y: x/y, correct, total))}
+        # No need to preserve layer specifications, those are already embedded in the `state` element.
 
         return state, reward, False, ret_dict
 
 # Classification where only CNN's will be used.
 class CNNClassificationEnv(JointClassificationEnv):
     def __init__(self, data_dim, cnn_count, inner_loss=None, train_data_iter=None, validation_data_iter=None, 
-    classes=10, reward_fn=nasrl.reward.Linear):
+    classes=10, reward_fn=nasrl.reward.Linear, adapt_steps=2):
         super(CNNClassificationEnv, self).__init__(data_dim, cnn_count, 1, inner_loss, train_data_iter, 
-        validation_data_iter, classes, reward_fn=reward_fn)
+        validation_data_iter, classes, reward_fn=reward_fn, adapt_steps=adapt_steps)
         self.observation_space = self.cnn_observation_space
     def reset(self):
         self.cnn_state = [librl.nn.core.cnn.conv_def(4, 4, 1, 1, 1)]
@@ -191,9 +200,9 @@ class CNNClassificationEnv(JointClassificationEnv):
 # Classification where only MLP's will be used.
 class MLPClassificationEnv(JointClassificationEnv):
     def __init__(self, data_dim, linear_count, inner_loss=None, train_data_iter=None, validation_data_iter=None, 
-    classes=10, reward_fn=nasrl.reward.Linear):
+    classes=10, reward_fn=nasrl.reward.Linear, adapt_steps=2):
         super(MLPClassificationEnv, self).__init__(data_dim, 0, linear_count, inner_loss, train_data_iter, 
-        validation_data_iter, classes, reward_fn=reward_fn)
+        validation_data_iter, classes, reward_fn=reward_fn, adapt_steps=adapt_steps)
         self.observation_space = self.mlp_observation_space
 
     def reset(self):
