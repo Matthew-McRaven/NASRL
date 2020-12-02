@@ -106,10 +106,10 @@ class JointClassificationEnv(gym.Env):
                 current_dims[dim] = librl.nn.core.cnn.resize_convolution(val, item.kernel, item.dilation, item.stride, item.padding)
                 if current_dims[dim] <= 0: return False
         return True
-
-    def step(self, actions):
-        self.old_state = self.cnn_state
-
+    
+    # Return True if action(s) were applied succesfully, or False if not.
+    # Excepts actions to be iterable.
+    def __apply_actions(self, actions):
         # Apply each modification in our action array.
         for action in actions:
             # Add neurons by performing a rotate right from the insertion point, and setting insertion point.
@@ -120,17 +120,27 @@ class JointClassificationEnv(gym.Env):
                 self.mlp_state[action.layer_num] = action.layer_size
             elif isinstance(action, ActionDelete) and action.which == LayerType.CNN:
                 # Remove neurons by performing a rotate left from the insertion point, and clearing the last element.
-                if len(self.cnn_state) == 1: (self.convert_state_numpy(self.cnn_state), self.mlp_state), -1., False, {}
+                if len(self.cnn_state) == 1: return False
                 elif len(self.cnn_state) <= action.layer_num: self.cnn_state.pop(-1)
                 else: self.cnn_state.pop(action.layer_num) 
             elif isinstance(action, ActionDelete) and action.which == LayerType.MLP:
                 # Remove neurons by performing a rotate left from the insertion point, and clearing the last element.
-                if np.count_nonzero(self.mlp_state) == 1: (self.convert_state_numpy(self.cnn_state), self.mlp_state), -1., False, {}
+                if np.count_nonzero(self.mlp_state) == 1: return False
                 else:
                     self.mlp_state[action.layer_num:] = np.roll(self.mlp_state[action.layer_num:], -1)
                     self.mlp_state[-1] = 0
             # TODO: Add a no-op action.
             else: raise NotImplementedError("Not a valid action")
+        return True
+
+    def step(self, actions):
+        self.old_state = self.cnn_state
+
+        # Actions couldn't be applied.
+        # Typically occurs because you attempted to delete the last layer.
+        if not self.__apply_actions(actions):
+            # TODO: Figure out a better retval.
+            return (self.convert_state_numpy(self.cnn_state), self.mlp_state), -1., False, {}
 
         # Require that the new state yield +'ve image size.
         # TODO: Debug if old state is really restored correctly.
@@ -151,7 +161,12 @@ class JointClassificationEnv(gym.Env):
         correct_list, total_list = librl.train.classification.label.train_single_label_classifier([inner_task])
         state = (self.convert_state_numpy(self.cnn_state), self.mlp_state)
         reward = self.reward_fn(correct_list[0], total_list[0], self.classes, classifier=class_net, cnn_layers=len(self.cnn_state), mlp_layers=len(mlp_state))
-        return state, reward, False, {}
+        # Collate "extra info" that may be needed for logging.
+        ret_dict = {'params':nasrl.reward.count_params(class_net), 'accuracy':correct_list[0]/total_list[0]}
+        if mlp_state: ret_dict.update({"mlp_layers": mlp_state})
+        if self.cnn_state: ret_dict.update({"mlp_layers": self.convert_state_numpy(self.cnn_state)})
+
+        return state, reward, False, ret_dict
 
 # Classification where only CNN's will be used.
 class CNNClassificationEnv(JointClassificationEnv):
