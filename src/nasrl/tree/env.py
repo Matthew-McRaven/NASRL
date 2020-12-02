@@ -140,14 +140,16 @@ class JointClassificationEnv(gym.Env):
         # Actions couldn't be applied.
         # Typically occurs because you attempted to delete the last layer.
         if not self.__apply_actions(actions):
+            # Explicitly log that this is a broken config.
             # TODO: Figure out a better retval.
-            return (self.convert_state_numpy(self.cnn_state), self.mlp_state), -1., False, {}
+            return (self.convert_state_numpy(self.cnn_state), self.mlp_state), -1., False, {'broken':True}
 
         # Require that the new state yield +'ve image size.
         # TODO: Debug if old state is really restored correctly.
         if not self.cnn_check_size(self.cnn_state):
             self.cnn_state = self.cnn_old_state
-            return (self.convert_state_numpy(self.cnn_state), self.mlp_state), -1., False, {}
+            # Explicitly log that this is a broken config.
+            return (self.convert_state_numpy(self.cnn_state), self.mlp_state), -1., False, {'broken':True}
         mlp_state = [x for x in self.mlp_state if x>0]
 
         # Create a classification network using our current state.

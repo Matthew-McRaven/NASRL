@@ -19,7 +19,8 @@ from . import *
 
 def mlp_helper(mnist_dataset, reward_fn):
     loaders = mnist_dataset.t_loaders, mnist_dataset.v_loaders
-    env = nasrl.tree.env.MLPClassificationEnv((1,28,28), 10, torch.nn.CrossEntropyLoss(), *loaders, reward_fn=reward_fn)
+    # TODO: If last adapt step stops updating NN, must change this to 1.
+    env = nasrl.tree.env.MLPClassificationEnv((1,28,28), 10, torch.nn.CrossEntropyLoss(), *loaders, reward_fn=reward_fn, adapt_steps=0)
     # Construct my agent.
     x = functools.reduce(lambda x,y: x*y, env.observation_space.shape, 1)
     policy_kernel = librl.nn.core.MLPKernel(x)

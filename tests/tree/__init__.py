@@ -1,10 +1,11 @@
 
 import librl.agent.pg
 import librl.nn.core, librl.nn.actor, librl.nn.critic, librl.nn.pg_loss
-import librl.reward, librl.replay.episodic
+import librl.reward
 import librl.task, librl.task.cc
 import librl.train.train_loop, librl.train.cc
 
+import nasrl.replay
 ######################
 # Execute train loop #
 ######################
@@ -13,7 +14,7 @@ def vpg_helper(hypers, env, _, policy_net):
     agent.train()
     dist = librl.task.TaskDistribution()
     dist.add_task(librl.task.Task.Definition(librl.task.ContinuousGymTask, env=env, agent=agent, episode_length=1, 
-        replay_ctor=librl.replay.episodic.ProductEpisode))
+        replay_ctor=nasrl.replay.ProductEpisodeWithExtraLogs))
     librl.train.train_loop.cc_episodic_trainer(hypers, dist, librl.train.cc.policy_gradient_step)
 
 def pgb_helper(hypers, env, critic_net, policy_net):
@@ -22,7 +23,7 @@ def pgb_helper(hypers, env, critic_net, policy_net):
     agent.train()
     dist = librl.task.TaskDistribution()
     dist.add_task(librl.task.Task.Definition(librl.task.ContinuousGymTask, env=env, agent=agent, episode_length=1, 
-        replay_ctor=librl.replay.episodic.ProductEpisode))
+        replay_ctor=nasrl.replay.ProductEpisodeWithExtraLogs))
     librl.train.train_loop.cc_episodic_trainer(hypers, dist, librl.train.cc.policy_gradient_step)
 
 def ppo_helper(hypers, env, critic_net, policy_net):
@@ -31,5 +32,5 @@ def ppo_helper(hypers, env, critic_net, policy_net):
     agent.train()
     dist = librl.task.TaskDistribution()
     dist.add_task(librl.task.Task.Definition(librl.task.ContinuousGymTask, env=env, agent=agent, episode_length=1, 
-        replay_ctor=librl.replay.episodic.ProductEpisode))
+        replay_ctor=nasrl.replay.ProductEpisodeWithExtraLogs))
     librl.train.train_loop.cc_episodic_trainer(hypers, dist, librl.train.cc.policy_gradient_step)

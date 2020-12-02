@@ -12,4 +12,3 @@ def create_nn_from_def(input_dimension, conv_layers=None, linear_layers=None):
         intermediate_dim = module_list[0].output_dimension
     if linear_layers: module_list.append(librl.nn.core.MLPKernel(intermediate_dim, linear_layers))
     return librl.nn.core.SequentialKernel(module_list)
-
