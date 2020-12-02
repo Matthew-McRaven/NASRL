@@ -13,6 +13,7 @@ import librl.train.classification.label
 
 from ..task import *
 from .actions import *
+import nasrl.reward
 class field_idx(enum.Enum):
     type = 0
     channels = 1
@@ -44,13 +45,20 @@ class type_idx(enum.Enum):
 
 # Classification while jointly building CNN's and MLP's
 class JointClassificationEnv(gym.Env):
-    def __init__(self, data_dim, cnn_count, mlp_count, inner_loss=None, train_data_iter=None, validation_data_iter=None, labels=10):
+    def __init__(self, data_dim, cnn_count, mlp_count, inner_loss=None, train_data_iter=None, 
+    validation_data_iter=None, classes=10, reward_fn=nasrl.reward.Linear
+    ):
         super(JointClassificationEnv, self).__init__()
         assert not isinstance(train_data_iter, torch.utils.data.DataLoader) # type: ignore
         assert not isinstance(validation_data_iter, torch.utils.data.DataLoader) # type: ignore
+        assert classes > 1
 
         self.cnn_count = cnn_count
         self.mlp_count = mlp_count
+
+        self.classes = classes
+        self.reward_fn = reward_fn
+
         # Limit the size of a neural network.
         # TODO: Actually respect this limit.
         # type, out_channel, kernel_size, dilation, stride, padding.
@@ -60,7 +68,6 @@ class JointClassificationEnv(gym.Env):
         self.mlp_observation_space = gym.spaces.Box(0, 400, (mlp_count,), dtype=np.int16)
         self.observation_space = gym.spaces.Tuple((self.cnn_observation_space, self.mlp_observation_space))
         # TODO: Figure out a sane representation of our action space.
-        self.labels = labels
         self.data_dim = data_dim
 
         self.inner_loss = inner_loss
@@ -134,7 +141,7 @@ class JointClassificationEnv(gym.Env):
 
         # Create a classification network using our current state.
         class_kernel = create_nn_from_def(self.data_dim, self.cnn_state, mlp_state)
-        class_net = librl.nn.classifier.Classifier(class_kernel, self.labels)
+        class_net = librl.nn.classifier.Classifier(class_kernel, self.classes)
         class_net.train()
 
         # Create and run a classification task.
@@ -142,14 +149,16 @@ class JointClassificationEnv(gym.Env):
         cel = torch.nn.CrossEntropyLoss()
         inner_task = librl.task.classification.ClassificationTask(classifier=class_net, criterion=cel, train_data_iter=t, validation_data_iter=v)
         correct_list, total_list = librl.train.classification.label.train_single_label_classifier([inner_task])
-        # Reward is % accuracy on validation set.
         state = (self.convert_state_numpy(self.cnn_state), self.mlp_state)
-        return state, 100 * correct_list[0] / total_list[0], False, {}
+        reward = self.reward_fn(correct_list[0], total_list[0], self.classes, classifier=class_net, cnn_layers=len(self.cnn_state), mlp_layers=len(mlp_state))
+        return state, reward, False, {}
 
 # Classification where only CNN's will be used.
 class CNNClassificationEnv(JointClassificationEnv):
-    def __init__(self, data_dim, cnn_count, inner_loss=None, train_data_iter=None, validation_data_iter=None, labels=10):
-        super(CNNClassificationEnv, self).__init__(data_dim, cnn_count, 1, inner_loss, train_data_iter, validation_data_iter, labels)
+    def __init__(self, data_dim, cnn_count, inner_loss=None, train_data_iter=None, validation_data_iter=None, 
+    classes=10, reward_fn=nasrl.reward.Linear):
+        super(CNNClassificationEnv, self).__init__(data_dim, cnn_count, 1, inner_loss, train_data_iter, 
+        validation_data_iter, classes, reward_fn=reward_fn)
         self.observation_space = self.cnn_observation_space
     def reset(self):
         self.cnn_state = [librl.nn.core.cnn.conv_def(4, 4, 1, 1, 1)]
@@ -166,8 +175,10 @@ class CNNClassificationEnv(JointClassificationEnv):
 
 # Classification where only MLP's will be used.
 class MLPClassificationEnv(JointClassificationEnv):
-    def __init__(self, data_dim, linear_count, inner_loss=None, train_data_iter=None, validation_data_iter=None, labels=10):
-        super(MLPClassificationEnv, self).__init__(data_dim, 0, linear_count, inner_loss, train_data_iter, validation_data_iter, labels)
+    def __init__(self, data_dim, linear_count, inner_loss=None, train_data_iter=None, validation_data_iter=None, 
+    classes=10, reward_fn=nasrl.reward.Linear):
+        super(MLPClassificationEnv, self).__init__(data_dim, 0, linear_count, inner_loss, train_data_iter, 
+        validation_data_iter, classes, reward_fn=reward_fn)
         self.observation_space = self.mlp_observation_space
 
     def reset(self):
