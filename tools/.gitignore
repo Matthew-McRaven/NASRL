@@ -1,0 +1,4 @@
+# Ignore log directories created by `run.py
+l0gs/
+logs/
+log/
