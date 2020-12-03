@@ -55,7 +55,12 @@ class MLPTreeActor(nn.Module):
         weight_dict = {}
         w_mlp_del, w_mlp_add = self.w_mlp_del(output), self.w_mlp_add(output)
         weight_dict['mlp_count'] = self._output_size
-        weight_dict['w_mlp_del'] = w_mlp_del
+        # If values 1..n are all equally, they're probably all 0.
+        # In that case, we shouldn't allow a delete.
+        if torch.eq(input[1], input[2:]).all():
+            weight_dict['w_mlp_del'] = torch.tensor(float("-inf"))
+        else:
+            weight_dict['w_mlp_del'] = w_mlp_del
         weight_dict['w_mlp_add'] = w_mlp_add
         lo = self.observation_space.low[0] if self.min_layer_size == None else self.min_layer_size
         hi = self.observation_space.high[0]
@@ -130,7 +135,13 @@ class CNNTreeActor(nn.Module):
         w_conv_del, w_conv_add = self.w_conv_del(output), self.w_conv_add(output)
         w_conv_add_conv, w_conv_add_max, w_conv_add_avg = self.w_conv_add_conv(output), self.w_conv_add_max(output), self.w_conv_add_avg(output)
         weight_dict['conv_count'] = self._output_size
-        weight_dict['w_conv_del'] = w_conv_del
+
+        # If values 1..n are all equally, they're probably all 0.
+        # In that case, we shouldn't allow a delete.
+        if torch.eq(input[1], input[2:]).all():
+            weight_dict['w_conv_del'] = torch.tensor(float("-inf"))
+        else:
+            weight_dict['w_conv_del'] = w_conv_del 
         weight_dict['w_conv_add'] = w_conv_add
         weight_dict['w_conv_add_conv'] = w_conv_add_conv
         weight_dict['w_conv_add_max'] = w_conv_add_max
