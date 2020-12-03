@@ -9,15 +9,33 @@ import torch, torch.utils
 import nasrl.nn
 import nasrl.tree.actor, nasrl.tree.env
 import nasrl.replay
+import nasrl.field
 
 from . import * 
+
 #######################
 # Agent / environment #
 #######################
+def get_mlp_conf():
+    interval = nasrl.field.Interval(10, 1000)
+    field = nasrl.field.Field(interval, lambda *_:200)
+    return nasrl.field.MLPConf(10, field)
+    
+def get_cnn_conf():
+    from nasrl.field.field import Interval, Field
+    from nasrl.field.conf import CNNConf
+    # Choose sensible ranges for (c)hannels, (k)ernel size, (s)tride,
+    # (p)adding, and (d)ilation. `lambda` repesent sensible initial values.
+    c_i, k_i = Interval(1, 128), Interval(2, 8)
+    s_i, p_i, d_i = Interval(1, 4), Interval(0, 4), Interval(1, 4)
+    c_f, k_f = Field(c_i, lambda *_:4), Field(k_i, lambda *_:4)
+    s_f, p_f, d_f = Field(s_i, lambda *_:1), Field(p_i, lambda *_:2), Field(d_i, lambda *_:1)
+    return CNNConf(10, c_f, k_f, s_f, p_f, d_f, lambda _: 1)
+    
 def mlp_helper(mnist_dataset):
     loaders = mnist_dataset.t_loaders, mnist_dataset.v_loaders
     # TODO: If last adapt step stops updating NN, must change this to 1.
-    env = nasrl.tree.env.MLPClassificationEnv((1,28,28), 10, torch.nn.CrossEntropyLoss(), *loaders, adapt_steps=0)
+    env = nasrl.tree.env.MLPClassificationEnv((1,28,28), get_mlp_conf(), torch.nn.CrossEntropyLoss(), *loaders, adapt_steps=0)
     # Construct my agent.
     x = functools.reduce(lambda x,y: x*y, env.observation_space.shape, 1)
     policy_kernel = librl.nn.core.MLPKernel(x)
@@ -29,7 +47,7 @@ def mlp_helper(mnist_dataset):
 def cnn_helper(mnist_dataset):
     loaders = mnist_dataset.t_loaders, mnist_dataset.v_loaders
     # TODO: If last adapt step stops updating NN, must change this to 1.
-    env = nasrl.tree.env.CNNClassificationEnv((1,28,28), 10, torch.nn.CrossEntropyLoss(), *loaders, adapt_steps=0)
+    env = nasrl.tree.env.CNNClassificationEnv((1,28,28), get_cnn_conf(), torch.nn.CrossEntropyLoss(), *loaders, adapt_steps=0)
     # Construct my agent.
     x = functools.reduce(lambda x,y: x*y, env.observation_space.shape, 1)
     policy_kernel = librl.nn.core.MLPKernel(x)
@@ -41,7 +59,7 @@ def cnn_helper(mnist_dataset):
 def joint_helper(mnist_dataset):
     loaders = mnist_dataset.t_loaders, mnist_dataset.v_loaders
     # TODO: If last adapt step stops updating NN, must change this to 1.
-    env = nasrl.tree.env.JointClassificationEnv((1,28,28), 10, 10, torch.nn.CrossEntropyLoss(), *loaders, adapt_steps=0)
+    env = nasrl.tree.env.JointClassificationEnv((1,28,28), get_cnn_conf(), get_mlp_conf(), torch.nn.CrossEntropyLoss(), *loaders, adapt_steps=0)
     # Construct an NN to process MLP and CNN network descriptions.
     cnn_size = functools.reduce(lambda x,y: x*y, env.cnn_observation_space.shape, 1)
     mlp_size = functools.reduce(lambda x,y: x*y, env.mlp_observation_space.shape, 1)

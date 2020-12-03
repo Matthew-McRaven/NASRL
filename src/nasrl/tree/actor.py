@@ -46,17 +46,14 @@ class MLPTreeActor(nn.Module):
     def get_policy_weights(self, input):
         output = self.neural_module(input).view(-1, self.__input_size)
 
-        # TODO: Figure out how to make inputs/outputs sane sizes.
         weight_dict = {}
         w_mlp_del, w_mlp_add = self.w_mlp_del(output), self.w_mlp_add(output)
         weight_dict['mlp_count'] = self.__output_size
         weight_dict['w_mlp_del'] = w_mlp_del
         weight_dict['w_mlp_add'] = w_mlp_add
-        # TODO: Make min/max number of neurons a parameter of the NN.
-        # Probably pull from observation space.
-        base = 25
-        max = torch.clamp((self.layer_size(output)+1)**2 + base, 0, 400)
-        weight_dict['mlp_size_dist'] = torch.distributions.Uniform(base, max)
+        lo, hi = self.observation_space.low[0], self.observation_space.high[0]
+        max = torch.clamp(self.layer_size(output), lo, hi)
+        weight_dict['mlp_size_dist'] = torch.distributions.Uniform(lo, max)
 
         return weight_dict
 
@@ -117,6 +114,7 @@ class CNNTreeActor(nn.Module):
         assert self.recurrent()
         self.neural_module.restore_hidden(state)
 
+    from nasrl.tree.env import field_idx as _field_idx
     def get_policy_weights(self, input):
         output = self.neural_module(input).view(-1, self.__input_size)
 
@@ -130,15 +128,21 @@ class CNNTreeActor(nn.Module):
         weight_dict['w_conv_add_conv'] = w_conv_add_conv
         weight_dict['w_conv_add_max'] = w_conv_add_max
         weight_dict['w_conv_add_avg'] = w_conv_add_avg
-        # TODO: Make min a parameter of the NN.
-        # Probably pull from observation space.
-        min = torch.tensor(1., requires_grad=True)
-        sane = lambda x,y: torch.clamp(min + (x**2 + 1)**2, max=y)
-        weight_dict['kernel_dist'] = torch.distributions.Uniform(min,  sane(self.kernel_dist_layer(output), 8))
-        weight_dict['channel_dist'] = torch.distributions.Uniform(min, sane(self.channel_dist_layer(output), 128))
-        weight_dict['stride_dist'] = torch.distributions.Uniform(min,  sane(self.stride_dist_layer(output), 8))
-        weight_dict['padding_dist'] = torch.distributions.Uniform(min, sane(self.padding_dist_layer(output), 8))
-        weight_dict['dilation_dist'] = torch.distributions.Uniform(min, sane(self.dilation_dist_layer(output), 2))
+        # Pull min / max values directly from observation space.
+        # Each "row" of the observation space (ought) to havethe same values, so pick row `0`.
+        min_k, max_k = self.observation_space.low[0][self._field_idx.kernel], self.observation_space.high[0][self._field_idx.kernel]
+        min_c, max_c = self.observation_space.low[0][self._field_idx.channels], self.observation_space.high[0][self._field_idx.channels]
+        min_s, max_s = self.observation_space.low[0][self._field_idx.stride], self.observation_space.high[0][self._field_idx.stride]
+        min_p, max_p = self.observation_space.low[0][self._field_idx.padding], self.observation_space.high[0][self._field_idx.padding]
+        min_d, max_d = self.observation_space.low[0][self._field_idx.dilation], self.observation_space.high[0][self._field_idx.dilation]
+
+        clamp = lambda x, min, max: torch.clamp(x, min=min, max=max)
+        
+        weight_dict['kernel_dist'] = torch.distributions.Uniform(min_k,  clamp(self.kernel_dist_layer(output), min_k, max_k))
+        weight_dict['channel_dist'] = torch.distributions.Uniform(min_c, clamp(self.channel_dist_layer(output), min_c, max_c))
+        weight_dict['stride_dist'] = torch.distributions.Uniform(min_s,  clamp(self.stride_dist_layer(output), min_s, max_s))
+        weight_dict['padding_dist'] = torch.distributions.Uniform(min_p, clamp(self.padding_dist_layer(output), min_p, max_p))
+        weight_dict['dilation_dist'] = torch.distributions.Uniform(min_d,clamp(self.dilation_dist_layer(output), min_d, max_d))
         
         return weight_dict
         

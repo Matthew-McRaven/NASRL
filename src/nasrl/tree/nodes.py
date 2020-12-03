@@ -62,6 +62,13 @@ class NodeConvAdd(ProbabilisticLeaf):
         layer_select_dist, k_dist, c_dist, s_dist, p_dist, d_dist = NodeConvAdd._get_dists(weight_dict)
         conv_args = [x.sample() for x in (k_dist,  c_dist, s_dist, p_dist, d_dist)]
         # Prevent runtime error when padding_size > .5*kernel_size.
+        # TODO: Danger Will Robinson! Our space isn't linear.
+        # Nor are we assured that kernel size and padding are on the same scale.
+        # You probably got here by grep'ing for 
+        #   `RuntimeError: pad should be smaller than half of kernel size, but got padW = ...`
+        # A suggested refactor would be to store the padding, kernel transformations in __init__
+        # backward() the numbers, clamp, and forward() the result.
+        # TODO: NodePoolAdd._sample
         conv_args[3] = torch.clamp(conv_args[3], max=math.floor(conv_args[0]/2))
         
         return ActionAddConv(self, layer_select_dist.sample(), *conv_args)
@@ -69,11 +76,11 @@ class NodeConvAdd(ProbabilisticLeaf):
     def _log_prob(self, action, weight_dict):
         layer_select_dist, k_dist, c_dist, s_dist, p_dist, d_dist = NodeConvAdd._get_dists(weight_dict)
         logprob = [layer_select_dist.log_prob(action.layer_num)]
-        logprob.append(k_dist.log_prob(action.conv_def.kernel))
-        logprob.append(c_dist.log_prob(action.conv_def.out_channels))
-        logprob.append(s_dist.log_prob(action.conv_def.stride))
-        logprob.append(p_dist.log_prob(action.conv_def.padding))
-        logprob.append(d_dist.log_prob(action.conv_def.dilation))
+        logprob.append(k_dist.log_prob(action.kernel))
+        logprob.append(c_dist.log_prob(action.channel))
+        logprob.append(s_dist.log_prob(action.stride))
+        logprob.append(p_dist.log_prob(action.padding))
+        logprob.append(d_dist.log_prob(action.dilation))
         slp = sum(logprob)
         return slp
 
@@ -93,10 +100,8 @@ class NodePoolAdd(ProbabilisticLeaf):
     def _sample(self, weight_dict):
         pool_type = self.pool_type
         layer_select_dist, k_dist, s_dist, p_dist, d_dist = NodePoolAdd._get_dists(weight_dict)
-        if self.pool_type == 'avg': 
-            d_dist = torch.distributions.Uniform(1,1)
-            d_dist.requires_grad = True
         pool_args = [x.sample() for x in (k_dist, s_dist, p_dist, d_dist)]
+        # TODO: See warning on NodeConvAdd._sample for why this doesn't work.
         # Prevent runtime error when padding_size > .5*kernel_size.
         pool_args[2] = torch.clamp(pool_args[2], max=math.floor(pool_args[0]/2))
         return ActionAddPool(self, layer_select_dist.sample(), pool_type, *pool_args)
@@ -104,10 +109,10 @@ class NodePoolAdd(ProbabilisticLeaf):
     def _log_prob(self, action, weight_dict):
         layer_select_dist, k_dist, s_dist, p_dist, d_dist = NodePoolAdd._get_dists(weight_dict)
         logprob = [layer_select_dist.log_prob(action.layer_num)]
-        logprob.append(k_dist.log_prob(action.conv_def.kernel))
-        logprob.append(s_dist.log_prob(action.conv_def.stride))
-        logprob.append(p_dist.log_prob(action.conv_def.padding))
+        logprob.append(k_dist.log_prob(action.kernel))
+        logprob.append(s_dist.log_prob(action.stride))
+        logprob.append(p_dist.log_prob(action.padding))
         if not self.pool_type == 'avg': 
-            logprob.append(d_dist.log_prob(action.conv_def.dilation))
+            logprob.append(d_dist.log_prob(action.dilation))
         slp = sum(logprob)
         return slp
