@@ -1,4 +1,5 @@
 import argparse
+import enum
 import functools
 import pickle
 import os
@@ -24,12 +25,20 @@ class DirLogger:
         os.makedirs(self.log_dir)
 
     def __call__(self, epochs, task_samples):
-        subdir = os.path.join(self.log_dir, f"{epochs}")
+        subdir = os.path.join(self.log_dir, f"epoch-{epochs}")
         # I would be very concerned if the subdir already exists
         os.makedirs(subdir)
-        for idx, task in enumerate(task_samples):
-            with open(os.path.join(subdir, f"task{idx}.pkl"), "wb") as fptr:
-                pickle.dump(task, fptr)
+        accuracy_list = []
+        for task_idx, task in enumerate(task_samples):
+            task_subdir = os.path.join(subdir, f"task-{task_idx}")
+            os.makedirs(task_subdir)
+            for trajectory_idx, trajectory in enumerate(task.trajectories):
+                with open(os.path.join(task_subdir, f"traj{trajectory_idx}.pkl"), "wb") as fptr:
+                    pickle.dump(trajectory, fptr)
+                    accuracy_list.append(trajectory.extra[len(trajectory.extra)-1]['accuracy'][-1])
+        print(f"Average accuracy for epoch {epochs} was {sum(accuracy_list)/len(accuracy_list)}.")
+
+
 ######################
 #      Datasets      #
 ######################
@@ -90,20 +99,38 @@ def ppo_helper(hypers, critic_net, policy_net):
 #######################
 # Agent / environment #
 #######################
+
+def get_mlp_conf(max_layers):
+    interval = nasrl.field.Interval(0, 1000)
+    field = nasrl.field.Field(interval, lambda *_:200)
+    return nasrl.field.MLPConf(max_layers, field , min_layer_size=10)
+    
+def get_cnn_conf(max_layers):
+    from nasrl.field.field import Interval, Field
+    from nasrl.field.conf import CNNConf
+    # Choose sensible ranges for (c)hannels, (k)ernel size, (s)tride,
+    # (p)adding, and (d)ilation. `lambda` repesent sensible initial values.
+    c_i, k_i = Interval(1, 128), Interval(2, 8)
+    s_i, p_i, d_i = Interval(1, 4), Interval(0, 4), Interval(1, 4)
+    c_f, k_f = Field(c_i, lambda *_:4), Field(k_i, lambda *_:4)
+    s_f, p_f, d_f = Field(s_i, lambda *_:1), Field(p_i, lambda *_:2), Field(d_i, lambda *_:1)
+    return CNNConf(max_layers, c_f, k_f, s_f, p_f, d_f, lambda _: 1)
+
 def build_mlp(dset, hypers):
     loaders = dset.t_loaders, dset.v_loaders
-    env = nasrl.tree.env.MLPClassificationEnv(dset.dims, hypers['max_mlp_layers'], torch.nn.CrossEntropyLoss(), *loaders, adapt_steps=0)
+    env = nasrl.tree.env.MLPClassificationEnv(dset.dims, get_mlp_conf(hypers['max_mlp_layers']), torch.nn.CrossEntropyLoss(), *loaders, adapt_steps=2)
     # Construct my agent.
     x = functools.reduce(lambda x,y: x*y, env.observation_space.shape, 1)
     policy_kernel = librl.nn.core.MLPKernel(x)
-    policy_net = nasrl.tree.actor.MLPTreeActor(policy_kernel, env.observation_space)
+    tx_layer_size = env.mlp_conf.mlp.transform.forward(env.mlp_conf.min_layer_size)
+    policy_net = nasrl.tree.actor.MLPTreeActor(policy_kernel, env.observation_space, min_layer_size=tx_layer_size)
     critic_kernel = librl.nn.core.MLPKernel(x)
     critic_net = librl.nn.critic.ValueCritic(critic_kernel)
     return env, critic_net, policy_net
 
 def build_cnn(dset, hypers):
     loaders = dset.t_loaders, dset.v_loaders
-    env = nasrl.tree.env.CNNClassificationEnv(dset.dims, hypers['max_cnn_layers'], torch.nn.CrossEntropyLoss(), *loaders, adapt_steps=0)
+    env = nasrl.tree.env.CNNClassificationEnv(dset.dims, get_cnn_conf(hypers['max_cnn_layers']), torch.nn.CrossEntropyLoss(), *loaders, adapt_steps=2)
     # Construct my agent.
     x = functools.reduce(lambda x,y: x*y, env.observation_space.shape, 1)
     policy_kernel = librl.nn.core.MLPKernel(x)
@@ -114,8 +141,8 @@ def build_cnn(dset, hypers):
 
 def build_joint(dset, hypers):
     loaders = dset.t_loaders, dset.v_loaders
-    env = nasrl.tree.env.JointClassificationEnv(dset.dims, hypers['max_cnn_layers'], hypers['max_mlp_layers'],
-    torch.nn.CrossEntropyLoss(), *loaders)
+    env = nasrl.tree.env.JointClassificationEnv(dset.dims, get_cnn_conf(hypers['max_cnn_layers']), 
+    get_mlp_conf(hypers['max_mlp_layers']), torch.nn.CrossEntropyLoss(), *loaders,  adapt_steps=2)
     # Construct an NN to process MLP and CNN network descriptions.
     cnn_size = functools.reduce(lambda x,y: x*y, env.cnn_observation_space.shape, 1)
     mlp_size = functools.reduce(lambda x,y: x*y, env.mlp_observation_space.shape, 1)
@@ -125,7 +152,8 @@ def build_joint(dset, hypers):
     # Use a bi-linear layer to combine state information about the MLP and CNN
     # to properly init cnn/mlp weighs.
     fusion_kernel = librl.nn.core.BilinearKernel(cnn_policy_kernel, mlp_policy_kernel, 10)
-    policy_net = nasrl.tree.actor.JointTreeActor(cnn_policy_kernel, mlp_policy_kernel, fusion_kernel, env.observation_space)
+    tx_layer_size = env.mlp_conf.mlp.transform.forward(env.mlp_conf.min_layer_size)
+    policy_net = nasrl.tree.actor.JointTreeActor(cnn_policy_kernel, mlp_policy_kernel, fusion_kernel, env.observation_space, min_layer_size=tx_layer_size)
     cnn_policy_kernel = librl.nn.core.MLPKernel(cnn_size)
     mlp_policy_kernel = librl.nn.core.MLPKernel(mlp_size)
     critic_kernel = nasrl.nn.BilinearAdapter(cnn_policy_kernel, mlp_policy_kernel, 10)
@@ -139,7 +167,7 @@ def main(args):
     hypers = {}
     hypers['device'] = 'cpu'
     hypers['epochs'] = 10
-    hypers['task_count'] = 2
+    hypers['task_count'] = 1
     hypers['episode_length'] = 2
     hypers['max_mlp_layers'] = 10
     hypers['max_cnn_layers'] = 10
