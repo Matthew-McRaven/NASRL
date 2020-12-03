@@ -19,12 +19,39 @@ before_script:
   - docker login -u ${CI_USER} -p ${CI_TOKEN} ${CI_REGISTRY}
   - docker info
 
-
+# 
+.phony: &base_latex
+  image: 10.0.0.8:15050/matthew-mcraven/latex:v1.0
+  stage: Build Latex
+  before_script:
+  - apt-get update
+  - apt-get install texlive-publishers
 
 stages:
+  - Build Latex
   - Build Library
   - Test
   - Deploy
+
+Build Writeups:
+  <<: *base_latex
+  needs: []
+  rules:
+  - changes:
+    - writeup/**/*
+    when: always
+  - if: $CI_COMMIT_TAG
+    when: always
+  - when: never
+  
+  artifacts:
+    paths:
+    - writeup/**/*.pdf
+  script:
+    - (cd writeup/notes && pdflatex notes.tex && pdflatex notes.tex)
+    - (cd writeup/proposal && pdflatex main.tex && pdflatex main.tex)
+    - (cd writeup/final && pdflatex main.tex && pdflatex main.tex)
+
 #########
 # Build the boost / python dependencies of out project.
 # All jobs use GIT_LFS_SKIP_SMUDGE, which prevents GIT LFS from pulling large data files.
