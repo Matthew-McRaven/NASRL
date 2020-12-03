@@ -118,7 +118,8 @@ def get_cnn_conf(max_layers):
 
 def build_mlp(dset, hypers):
     loaders = dset.t_loaders, dset.v_loaders
-    env = nasrl.tree.env.MLPClassificationEnv(dset.dims, get_mlp_conf(hypers['max_mlp_layers']), torch.nn.CrossEntropyLoss(), *loaders, adapt_steps=2)
+    env = nasrl.tree.env.MLPClassificationEnv(dset.dims, get_mlp_conf(hypers['max_mlp_layers']),
+        torch.nn.CrossEntropyLoss(), *loaders, adapt_steps=hypers['adapt_steps'])
     # Construct my agent.
     x = functools.reduce(lambda x,y: x*y, env.observation_space.shape, 1)
     policy_kernel = librl.nn.core.MLPKernel(x)
@@ -130,7 +131,8 @@ def build_mlp(dset, hypers):
 
 def build_cnn(dset, hypers):
     loaders = dset.t_loaders, dset.v_loaders
-    env = nasrl.tree.env.CNNClassificationEnv(dset.dims, get_cnn_conf(hypers['max_cnn_layers']), torch.nn.CrossEntropyLoss(), *loaders, adapt_steps=2)
+    env = nasrl.tree.env.CNNClassificationEnv(dset.dims, get_cnn_conf(hypers['max_cnn_layers']), 
+        torch.nn.CrossEntropyLoss(), *loaders, adapt_steps=hypers['adapt_steps'])
     # Construct my agent.
     x = functools.reduce(lambda x,y: x*y, env.observation_space.shape, 1)
     policy_kernel = librl.nn.core.MLPKernel(x)
@@ -142,7 +144,7 @@ def build_cnn(dset, hypers):
 def build_joint(dset, hypers):
     loaders = dset.t_loaders, dset.v_loaders
     env = nasrl.tree.env.JointClassificationEnv(dset.dims, get_cnn_conf(hypers['max_cnn_layers']), 
-    get_mlp_conf(hypers['max_mlp_layers']), torch.nn.CrossEntropyLoss(), *loaders,  adapt_steps=2)
+        get_mlp_conf(hypers['max_mlp_layers']), torch.nn.CrossEntropyLoss(), *loaders,  adapt_steps=hypers['adapt_steps'])
     # Construct an NN to process MLP and CNN network descriptions.
     cnn_size = functools.reduce(lambda x,y: x*y, env.cnn_observation_space.shape, 1)
     mlp_size = functools.reduce(lambda x,y: x*y, env.mlp_observation_space.shape, 1)
@@ -166,23 +168,40 @@ def build_joint(dset, hypers):
 def main(args):
     hypers = {}
     hypers['device'] = 'cpu'
-    hypers['epochs'] = 10
-    hypers['task_count'] = 1
-    hypers['episode_length'] = 2
+    hypers['epochs'] = args.epochs
+    hypers['task_count'] = args.task_count
+    hypers['adapt_steps'] = hypers['episode_length'] = args.adapt_steps
     hypers['max_mlp_layers'] = 10
     hypers['max_cnn_layers'] = 10
     dset = mnist_dataset()
 
-    env, critic, actor = build_mlp(dset, hypers)
-    agent = vpg_helper(hypers, critic, actor)
+    env, critic, actor = args.type(dset, hypers)
+    agent = args.alg(hypers, critic, actor)
 
     dist = librl.task.TaskDistribution()
-    dist.add_task(librl.task.Task.Definition(librl.task.ContinuousGymTask, env=env, agent=agent, episode_length=hypers['episode_length'], 
+    dist.add_task(librl.task.Task.Definition(librl.task.ContinuousGymTask, env=env, agent=agent, episode_length=args.adapt_steps, 
         replay_ctor=nasrl.replay.ProductEpisodeWithExtraLogs))
-    librl.train.train_loop.cc_episodic_trainer(hypers, dist, librl.train.cc.policy_gradient_step, log_fn=DirLogger("./l0gs"))
+    librl.train.train_loop.cc_episodic_trainer(hypers, dist, librl.train.cc.policy_gradient_step, log_fn=DirLogger(args.log_dir))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Do things")
+    parser.add_argument("--log-dir", dest="log_dir", help="Directory in which to store logs.")
+    # Choose RL algorthim.
+    learn_alg_group = parser.add_mutually_exclusive_group()
+    learn_alg_group.add_argument("--vpg", action='store_const', const=vpg_helper, dest='alg', help="Train agent using VPG.")
+    learn_alg_group.add_argument("--pgb", action='store_const', const=pgb_helper, dest='alg', help="Train agent using PGB.")
+    learn_alg_group.add_argument("--ppo", action='store_const', const=ppo_helper, dest='alg', help="Train agent using PPO.")
+    learn_alg_group.set_defaults(alg=vpg_helper)
+    # Choose which kind of network to generate.
+    type_group = parser.add_mutually_exclusive_group()
+    type_group.add_argument("--mlp", action='store_const', const=build_mlp, dest='type', help="Build MLP only networks.")
+    type_group.add_argument("--conv", action='store_const', const=build_cnn, dest='type', help="Build CNN only networks.")
+    type_group.add_argument("--joint", action='store_const', const=build_joint, dest='type', help="Build mixed CNN+MLP networks.")
+    type_group.set_defaults(type=build_mlp)
+    # Task distribution hyperparams.
+    parser.add_argument("--epochs", default=10, type=int, help="Number of epochs for which to train the generator network.")
+    parser.add_argument("--adapt-steps", dest="adapt_steps", default=2, type=int, help="Number of epochs which to the generated network.")
+    parser.add_argument("--task-count", dest="task_count", default=3, type=int, help="Number of times of trials of the generator per epoch.")
     args = parser.parse_args()
     main(args)
