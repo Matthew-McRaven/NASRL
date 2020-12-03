@@ -11,7 +11,8 @@ def mnist_dataset():
             self.hypers['epochs'] = 1
             self.hypers['task_count'] = 1
             transformation = torchvision.transforms.Compose([
-            torchvision.transforms.ToTensor(),]) 
+            torchvision.transforms.ToTensor(),
+            torchvision.transforms.Normalize(0.1307, 0.3081)]) 
             # Construct dataloaders from datasets
             train_dset = torchvision.datasets.MNIST("__pycache__/MNIST", transform=transformation, download=True)
             validation_dset = torchvision.datasets.MNIST("__pycache__/MNIST", transform=transformation, train=False)
