@@ -19,6 +19,7 @@ class NodeMLPDel(ProbabilisticLeaf):
     def _log_prob(self, action, weight_dict):
         layer_select_dist = torch.distributions.Uniform(0, weight_dict['mlp_count'])
         lp = layer_select_dist.log_prob(action.layer_num)
+        assert not torch.isnan(lp).any() and torch.isfinite(lp).all()
         return lp
 
 # Delete a layer from a CNN.
@@ -29,8 +30,9 @@ class NodeConvDel(ProbabilisticLeaf):
 
     def _log_prob(self, action, weight_dict):
         layer_select_dist = torch.distributions.Uniform(0, weight_dict['conv_count']-1)
-        return layer_select_dist.log_prob(action.layer_num)
-
+        lp = layer_select_dist.log_prob(action.layer_num)
+        assert not torch.isnan(lp).any()
+        return lp
 # Add a layer to a MLP.
 class NodeMLPAdd(ProbabilisticLeaf):
     @staticmethod
@@ -44,7 +46,10 @@ class NodeMLPAdd(ProbabilisticLeaf):
 
     def _log_prob(self, action, weight_dict):
         layer_select_dist, layer_size_dist = NodeMLPAdd._get_dists(weight_dict)
-        return layer_select_dist.log_prob(action.layer_num) + layer_size_dist.log_prob(action.layer_size)
+        ldist, lsize = layer_select_dist.log_prob(action.layer_num), layer_size_dist.log_prob(action.layer_size)
+        assert not torch.isnan(ldist).any() and torch.isfinite(ldist).all()
+        assert not torch.isnan(lsize).any() and torch.isfinite(lsize).all()
+        return ldist + lsize
 
 # Add a convolutional layer to a CNN.
 class NodeConvAdd(ProbabilisticLeaf):
@@ -82,6 +87,7 @@ class NodeConvAdd(ProbabilisticLeaf):
         logprob.append(p_dist.log_prob(action.padding))
         logprob.append(d_dist.log_prob(action.dilation))
         slp = sum(logprob)
+        assert not torch.isnan(slp).any() and torch.isfinite(slp).all()
         return slp
 
 # Add a pooling layer to a CNN.
@@ -115,4 +121,5 @@ class NodePoolAdd(ProbabilisticLeaf):
         if not self.pool_type == 'avg': 
             logprob.append(d_dist.log_prob(action.dilation))
         slp = sum(logprob)
+        assert not torch.isnan(slp).any() and torch.isfinite(slp).all()
         return slp

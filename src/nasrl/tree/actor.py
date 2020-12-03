@@ -10,9 +10,10 @@ from .policy import CNNDecisionTree, FullDecisionTree, MLPDecisionTree, TreePoli
 
 # Actor that generates weightings for nasrl.tree.MLPDecisionTree
 class MLPTreeActor(nn.Module):
-    def __init__(self, neural_module,  observation_space, output_dimension=(10,)):
+    def __init__(self, neural_module,  observation_space, min_layer_size=None, output_dimension=(10,)):
         super(MLPTreeActor, self).__init__()
         self.observation_space = observation_space
+        self.min_layer_size = min_layer_size
         self.decision_tree = MLPDecisionTree()
 
         self.input_dimension = list(more_itertools.always_iterable(neural_module.output_dimension))
@@ -44,15 +45,21 @@ class MLPTreeActor(nn.Module):
         assert self.recurrent()
         self.neural_module.restore_hidden(state)
     def get_policy_weights(self, input):
-        output = self.neural_module(input).view(-1, self._input_size)
+        # Detect NAN poisoning.
+        try:
+            output = self.neural_module(input).view(-1, self._input_size)
+        except AssertionError as e:
+            print(input, self)
+            raise e
 
         weight_dict = {}
         w_mlp_del, w_mlp_add = self.w_mlp_del(output), self.w_mlp_add(output)
         weight_dict['mlp_count'] = self._output_size
         weight_dict['w_mlp_del'] = w_mlp_del
         weight_dict['w_mlp_add'] = w_mlp_add
-        lo, hi = self.observation_space.low[0], self.observation_space.high[0]
-        max = torch.clamp(self.layer_size(output), lo, hi)
+        lo = self.observation_space.low[0] if self.min_layer_size == None else self.min_layer_size
+        hi = self.observation_space.high[0]
+        max = torch.clamp(self.layer_size(output), min=(lo+1e-4), max=hi)
         weight_dict['mlp_size_dist'] = torch.distributions.Uniform(lo, max)
 
         return weight_dict
@@ -136,7 +143,7 @@ class CNNTreeActor(nn.Module):
         min_p, max_p = self.observation_space.low[0][self._field_idx.padding], self.observation_space.high[0][self._field_idx.padding]
         min_d, max_d = self.observation_space.low[0][self._field_idx.dilation], self.observation_space.high[0][self._field_idx.dilation]
 
-        clamp = lambda x, min, max: torch.clamp(x, min=min, max=max)
+        clamp = lambda x, min, max: torch.clamp(x, min=(min+1e-4), max=max)
         
         weight_dict['kernel_dist'] = torch.distributions.Uniform(min_k,  clamp(self.kernel_dist_layer(output), min_k, max_k))
         weight_dict['channel_dist'] = torch.distributions.Uniform(min_c, clamp(self.channel_dist_layer(output), min_c, max_c))
@@ -163,12 +170,12 @@ class CNNTreeActor(nn.Module):
 class JointTreeActor(nn.Module):
     # In order to choose weights for `w_conv` and `w_mlp`, we need to consider both CNN and MLP network configs.
     # Enter the fusion_kernel. The fusion_kernel should take as arguments the full CNN and MLP network descrptions.
-    def __init__(self, cnn_module, mlp_module, fusion_kernel,  observation_space, output_dimension=(10,)):
+    def __init__(self, cnn_module, mlp_module, fusion_kernel,  observation_space, min_layer_size=None, output_dimension=(10,)):
         super(JointTreeActor, self).__init__()
         self.observation_space = observation_space
         self.decision_tree = FullDecisionTree()
         self.cnn_actor = CNNTreeActor(cnn_module, observation_space[0])
-        self.mlp_actor = MLPTreeActor(mlp_module, observation_space[1])
+        self.mlp_actor = MLPTreeActor(mlp_module, observation_space[1], min_layer_size=min_layer_size)
         self.fusion_kernel = fusion_kernel
 
         self.input_dimension = list(more_itertools.always_iterable(fusion_kernel.output_dimension))

@@ -6,11 +6,12 @@ from .field import Field
 
 # Describe the range of values that MLP's neurons can take on.
 class MLPConf:
-    def __init__(self, n_layers, mlp, init_layer_count_fn=lambda max_layers:1):
+    def __init__(self, n_layers, mlp, min_layer_size=10,init_layer_count_fn=lambda max_layers:1):
         assert n_layers>=0
         assert isinstance(mlp, Field) or (mlp is None and n_layers==0)
         self.n_layers = n_layers
         self.mlp = mlp
+        self.min_layer_size = min_layer_size
         self._init_layer_count = init_layer_count_fn
         
     def init_layer_count(self):

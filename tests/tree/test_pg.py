@@ -17,9 +17,9 @@ from . import *
 # Agent / environment #
 #######################
 def get_mlp_conf():
-    interval = nasrl.field.Interval(10, 1000)
+    interval = nasrl.field.Interval(0, 1000)
     field = nasrl.field.Field(interval, lambda *_:200)
-    return nasrl.field.MLPConf(10, field)
+    return nasrl.field.MLPConf(10, field, min_layer_size=10)
     
 def get_cnn_conf():
     from nasrl.field.field import Interval, Field

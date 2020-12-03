@@ -250,7 +250,6 @@ class JointClassificationEnv(gym.Env):
         # Create a classification network using our current state.
         class_kernel = create_nn_from_def(self.data_dim, self.cnn_state, mlp_state)
         class_net = librl.nn.classifier.Classifier(class_kernel, self.classes)
-        print(class_net)
         class_net.train()
 
         # Create and run a classification task.
