@@ -56,16 +56,16 @@ class NodeConvAdd(ProbabilisticLeaf):
     @staticmethod
     def _get_dists(weight_dict):
         dists = []
-        dists.append(weight_dict['kernel_dist'])
         dists.append(weight_dict['channel_dist'])
+        dists.append(weight_dict['kernel_dist'])
         dists.append(weight_dict['stride_dist'])
         dists.append(weight_dict['padding_dist'])
         dists.append(weight_dict['dilation_dist'])
         return torch.distributions.Uniform(0, weight_dict['conv_count']), *dists
 
     def _sample(self, weight_dict):
-        layer_select_dist, k_dist, c_dist, s_dist, p_dist, d_dist = NodeConvAdd._get_dists(weight_dict)
-        conv_args = [x.sample() for x in (k_dist,  c_dist, s_dist, p_dist, d_dist)]
+        layer_select_dist, c_dist, k_dist, s_dist, p_dist, d_dist = NodeConvAdd._get_dists(weight_dict)
+        conv_args = [x.sample() for x in (c_dist, k_dist, s_dist, p_dist, d_dist)]
         # Prevent runtime error when padding_size > .5*kernel_size.
         # TODO: Danger Will Robinson! Our space isn't linear.
         # Nor are we assured that kernel size and padding are on the same scale.
@@ -79,7 +79,7 @@ class NodeConvAdd(ProbabilisticLeaf):
         return ActionAddConv(self, layer_select_dist.sample(), *conv_args)
 
     def _log_prob(self, action, weight_dict):
-        layer_select_dist, k_dist, c_dist, s_dist, p_dist, d_dist = NodeConvAdd._get_dists(weight_dict)
+        layer_select_dist, c_dist, k_dist, s_dist, p_dist, d_dist = NodeConvAdd._get_dists(weight_dict)
         logprob = [layer_select_dist.log_prob(action.layer_num)]
         logprob.append(k_dist.log_prob(action.kernel))
         logprob.append(c_dist.log_prob(action.channel))

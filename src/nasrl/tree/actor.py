@@ -160,7 +160,7 @@ class CNNTreeActor(nn.Module):
         weight_dict['channel_dist'] = torch.distributions.Uniform(min_c, clamp(self.channel_dist_layer(output), min_c, max_c))
         weight_dict['stride_dist'] = torch.distributions.Uniform(min_s,  clamp(self.stride_dist_layer(output), min_s, max_s))
         weight_dict['padding_dist'] = torch.distributions.Uniform(min_p, clamp(self.padding_dist_layer(output), min_p, max_p))
-        weight_dict['dilation_dist'] = torch.distributions.Uniform(min_d,clamp(self.dilation_dist_layer(output), min_d, max_d))
+        weight_dict['dilation_dist'] = torch.distributions.Uniform(min_d, clamp(self.dilation_dist_layer(output), min_d, max_d))
         
         return weight_dict
         
