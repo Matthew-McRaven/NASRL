@@ -16,17 +16,17 @@ class MLPTreeActor(nn.Module):
         self.decision_tree = MLPDecisionTree()
 
         self.input_dimension = list(more_itertools.always_iterable(neural_module.output_dimension))
-        self.__input_size = functools.reduce(lambda x,y: x*y, self.input_dimension, 1)
+        self._input_size = functools.reduce(lambda x,y: x*y, self.input_dimension, 1)
         self.neural_module = neural_module
         self.output_dimension = output_dimension
-        self.__output_size = functools.reduce(lambda x,y: x*y, self.output_dimension, 1)
-        self.__output_size = torch.tensor(self.__output_size, requires_grad=True, dtype=torch.float)
+        self._output_size = functools.reduce(lambda x,y: x*y, self.output_dimension, 1)
+        self._output_size = torch.tensor(self._output_size, requires_grad=True, dtype=torch.float)
 
         # Our output layers are used as the seed for some set of random number generators.
         # These random number generators are used to generate edge pairs.
-        self.layer_size = nn.Linear(self.__input_size, 1)
-        self.w_mlp_del = nn.Linear(self.__input_size, 1)
-        self.w_mlp_add = nn.Linear(self.__input_size, 1)
+        self.layer_size = nn.Linear(self._input_size, 1)
+        self.w_mlp_del = nn.Linear(self._input_size, 1)
+        self.w_mlp_add = nn.Linear(self._input_size, 1)
 
         # Initialize NN
         for x in self.parameters():
@@ -44,11 +44,11 @@ class MLPTreeActor(nn.Module):
         assert self.recurrent()
         self.neural_module.restore_hidden(state)
     def get_policy_weights(self, input):
-        output = self.neural_module(input).view(-1, self.__input_size)
+        output = self.neural_module(input).view(-1, self._input_size)
 
         weight_dict = {}
         w_mlp_del, w_mlp_add = self.w_mlp_del(output), self.w_mlp_add(output)
-        weight_dict['mlp_count'] = self.__output_size
+        weight_dict['mlp_count'] = self._output_size
         weight_dict['w_mlp_del'] = w_mlp_del
         weight_dict['w_mlp_add'] = w_mlp_add
         lo, hi = self.observation_space.low[0], self.observation_space.high[0]
@@ -79,24 +79,24 @@ class CNNTreeActor(nn.Module):
         self.decision_tree = CNNDecisionTree()
 
         self.input_dimension = list(more_itertools.always_iterable(neural_module.output_dimension))
-        self.__input_size = functools.reduce(lambda x,y: x*y, self.input_dimension, 1)
+        self._input_size = functools.reduce(lambda x,y: x*y, self.input_dimension, 1)
         self.neural_module = neural_module
         self.output_dimension = output_dimension
-        self.__output_size = functools.reduce(lambda x,y: x*y, self.output_dimension, 1)
-        self.__output_size = torch.tensor(self.__output_size, requires_grad=True, dtype=torch.float)
+        self._output_size = functools.reduce(lambda x,y: x*y, self.output_dimension, 1)
+        self._output_size = torch.tensor(self._output_size, requires_grad=True, dtype=torch.float)
 
         # Our output layers are used as the seed for some set of random number generators.
         # These random number generators are used to generate edge pairs.
-        self.w_conv_del = nn.Linear(self.__input_size, 1)
-        self.w_conv_add = nn.Linear(self.__input_size, 1)
-        self.w_conv_add_conv = nn.Linear(self.__input_size, 1)
-        self.w_conv_add_max = nn.Linear(self.__input_size, 1)
-        self.w_conv_add_avg = nn.Linear(self.__input_size, 1)
-        self.kernel_dist_layer = nn.Linear(self.__input_size, 1)
-        self.channel_dist_layer = nn.Linear(self.__input_size, 1)
-        self.stride_dist_layer = nn.Linear(self.__input_size, 1)
-        self.padding_dist_layer = nn.Linear(self.__input_size, 1)
-        self.dilation_dist_layer = nn.Linear(self.__input_size, 1)
+        self.w_conv_del = nn.Linear(self._input_size, 1)
+        self.w_conv_add = nn.Linear(self._input_size, 1)
+        self.w_conv_add_conv = nn.Linear(self._input_size, 1)
+        self.w_conv_add_max = nn.Linear(self._input_size, 1)
+        self.w_conv_add_avg = nn.Linear(self._input_size, 1)
+        self.kernel_dist_layer = nn.Linear(self._input_size, 1)
+        self.channel_dist_layer = nn.Linear(self._input_size, 1)
+        self.stride_dist_layer = nn.Linear(self._input_size, 1)
+        self.padding_dist_layer = nn.Linear(self._input_size, 1)
+        self.dilation_dist_layer = nn.Linear(self._input_size, 1)
 
         # Initialize NN
         for x in self.parameters():
@@ -116,13 +116,13 @@ class CNNTreeActor(nn.Module):
 
     from nasrl.tree.env import field_idx as _field_idx
     def get_policy_weights(self, input):
-        output = self.neural_module(input).view(-1, self.__input_size)
+        output = self.neural_module(input).view(-1, self._input_size)
 
         # TODO: Figure out how to make inputs/outputs sane sizes.
         weight_dict = {}
         w_conv_del, w_conv_add = self.w_conv_del(output), self.w_conv_add(output)
         w_conv_add_conv, w_conv_add_max, w_conv_add_avg = self.w_conv_add_conv(output), self.w_conv_add_max(output), self.w_conv_add_avg(output)
-        weight_dict['conv_count'] = self.__output_size
+        weight_dict['conv_count'] = self._output_size
         weight_dict['w_conv_del'] = w_conv_del
         weight_dict['w_conv_add'] = w_conv_add
         weight_dict['w_conv_add_conv'] = w_conv_add_conv
@@ -172,13 +172,13 @@ class JointTreeActor(nn.Module):
         self.fusion_kernel = fusion_kernel
 
         self.input_dimension = list(more_itertools.always_iterable(fusion_kernel.output_dimension))
-        self.__input_size = functools.reduce(lambda x,y: x*y, self.input_dimension, 1)
+        self._input_size = functools.reduce(lambda x,y: x*y, self.input_dimension, 1)
 
         self.output_dimension = output_dimension
-        self.__output_size = functools.reduce(lambda x,y: x*y, self.output_dimension, 1)
-        self.__output_size = torch.tensor(self.__output_size, requires_grad=True, dtype=torch.float)
-        self.w_mlp = nn.Linear(self.__input_size, 1)
-        self.w_conv = nn.Linear(self.__input_size, 1)
+        self._output_size = functools.reduce(lambda x,y: x*y, self.output_dimension, 1)
+        self._output_size = torch.tensor(self._output_size, requires_grad=True, dtype=torch.float)
+        self.w_mlp = nn.Linear(self._input_size, 1)
+        self.w_conv = nn.Linear(self._input_size, 1)
 
         # Initialize NN
         for x in self.parameters():
