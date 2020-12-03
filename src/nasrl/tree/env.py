@@ -210,6 +210,8 @@ class JointClassificationEnv(gym.Env):
                 self.mlp_state[action.layer_num:] = np.roll(self.mlp_state[action.layer_num:], 1)
                 # Backward() not guaranteed to return int.
                 self.mlp_state[action.layer_num] = int(self.mlp_conf.mlp.transform.backward(action.layer_size))
+                # Move all 0's to end of array.
+                self.mlp_state = np.concatenate((self.mlp_state[self.mlp_state!=0], self.mlp_state[self.mlp_state==0]))
             elif isinstance(action, ActionDelete) and action.which == LayerType.CNN:
                 # Remove neurons by performing a rotate left from the insertion point, and clearing the last element.
                 if len(self.cnn_state) <= 1: return False
