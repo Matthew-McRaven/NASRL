@@ -185,7 +185,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Do things")
+    parser = argparse.ArgumentParser(description="Train generator network on a task for multiple epochs and record results.")
     parser.add_argument("--log-dir", dest="log_dir", help="Directory in which to store logs.")
     # Choose RL algorthim.
     learn_alg_group = parser.add_mutually_exclusive_group()
