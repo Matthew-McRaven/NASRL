@@ -47,8 +47,10 @@ class NodeMLPAdd(ProbabilisticLeaf):
     def _log_prob(self, action, weight_dict):
         layer_select_dist, layer_size_dist = NodeMLPAdd._get_dists(weight_dict)
         ldist, lsize = layer_select_dist.log_prob(action.layer_num), layer_size_dist.log_prob(action.layer_size)
-        assert not torch.isnan(ldist).any() and torch.isfinite(ldist).all()
-        assert not torch.isnan(lsize).any() and torch.isfinite(lsize).all()
+        assert not torch.isnan(ldist).any()
+        assert torch.isfinite(ldist).all()
+        assert not torch.isnan(lsize).any()
+        assert torch.isfinite(lsize).all()
         return ldist + lsize
 
 # Add a convolutional layer to a CNN.
@@ -81,13 +83,16 @@ class NodeConvAdd(ProbabilisticLeaf):
     def _log_prob(self, action, weight_dict):
         layer_select_dist, c_dist, k_dist, s_dist, p_dist, d_dist = NodeConvAdd._get_dists(weight_dict)
         logprob = [layer_select_dist.log_prob(action.layer_num)]
-        logprob.append(k_dist.log_prob(action.kernel))
         logprob.append(c_dist.log_prob(action.channel))
+        logprob.append(k_dist.log_prob(action.kernel))
         logprob.append(s_dist.log_prob(action.stride))
         logprob.append(p_dist.log_prob(action.padding))
         logprob.append(d_dist.log_prob(action.dilation))
         slp = sum(logprob)
-        assert not torch.isnan(slp).any() and torch.isfinite(slp).all()
+
+        assert not torch.isnan(slp).any()
+        assert torch.isfinite(slp).all()
+
         return slp
 
 # Add a pooling layer to a CNN.
