@@ -204,24 +204,24 @@ class JointTreeActor(nn.Module):
                 nn.init.kaiming_normal_(x)
 
     def recurrent(self):
-        return self.cnn_module.recurrent() or self.mlp_module.recurrent()
+        return self.cnn_actor.recurrent() or self.mlp_actor.recurrent()
         
     def save_hidden(self):
         ret = {}
         assert self.recurrent()
-        if self.cnn_module.recurrent(): ret[id(self.cnn_module)] = self.cnn_module.save_hidden()
-        if self.mlp_module.recurrent(): ret[id(self.mlp_module)] = self.mlp_module.save_hidden()
+        if self.cnn_actor.recurrent(): ret[id(self.cnn_actor)] = self.cnn_actor.save_hidden()
+        if self.mlp_actor.recurrent(): ret[id(self.mlp_actor)] = self.mlp_actor.save_hidden()
         return ret
 
     def restore_hidden(self, state_dict=None):
-        if self.cnn_module.recurrent():
-            id_cnn = id(self.cnn_module)
-            if state_dict != None and id_cnn in state_dict: self.cnn_module.restore_hidden(state_dict[id_cnn])
-            else: self.cnn_module.restore_hidden()
-        if self.mlp_module.recurrent():
-            id_mlp = id(self.mlp_module)
-            if state_dict != None and id_mlp in state_dict: self.mlp_module.restore_hidden(state_dict[id_mlp])
-            else: self.mlp_module.restore_hidden()
+        if self.cnn_actor.recurrent():
+            id_cnn = id(self.cnn_actor)
+            if state_dict != None and id_cnn in state_dict: self.cnn_actor.restore_hidden(state_dict[id_cnn])
+            else: self.cnn_actor.restore_hidden()
+        if self.mlp_actor.recurrent():
+            id_mlp = id(self.mlp_actor)
+            if state_dict != None and id_mlp in state_dict: self.mlp_actor.restore_hidden(state_dict[id_mlp])
+            else: self.mlp_actor.restore_hidden()
 
     def get_policy_weights(self, cnn_input, mlp_input):
         weight_dict = {}
