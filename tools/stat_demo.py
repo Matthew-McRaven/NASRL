@@ -1,3 +1,6 @@
+"""
+Tool to visualize various configurations of a β-distribution.
+"""
 from scipy.stats import beta
 import scipy.special
 import numpy as np
