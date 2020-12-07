@@ -2,9 +2,9 @@ from distutils.core import setup
 from setuptools import find_packages
 
 install_reqs = []
-install_reqs.extend(["torch ~= 1.7.0", "torchvision ~= 0.8.1", "librl == 0.2.4", "pytest ~= 6.1"])
+install_reqs.extend(["torch ~= 1.7.0", "torchvision ~= 0.8.1", "librl == 0.2.7", "pytest ~= 6.1"])
 setup(name='nasrl',
-      version='0.2.2',
+      version='0.2.3',
       description='Library code for our NAS-RL project.',
       author='Matthew McRaven',
       author_email='mkm302@georgetown.edu',

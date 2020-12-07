@@ -28,12 +28,13 @@ def CNNDecisionTree():
 
 # Represent a policy that uses a probabilistic decision tree to generate actions.
 class TreePolicy:
-    def __init__(self, decision_tree, weights):
+    def __init__(self, decision_tree, weights, device):
         #print(decision_tree)
         self.decision_tree = decision_tree
         self.weights = weights
+        self.device = device
     def sample(self, count):
-        return self.decision_tree.sample(count, self.weights)
+        return self.decision_tree.sample(count, self.weights, self.device)
     def log_prob(self, actions):
         # librl expects a tensor of logprobs matching the shape of actions.
         return torch.stack([action.log_prob(self.weights) for action in actions])

@@ -54,11 +54,11 @@ class MLPTreeActor(nn.Module):
 
         weight_dict = {}
         w_mlp_del, w_mlp_add = self.w_mlp_del(output), self.w_mlp_add(output)
-        weight_dict['mlp_count'] = self._output_size
+        weight_dict['mlp_count'] = self._output_size.to(input.device)
         # If values 1..n are all equally, they're probably all 0.
         # In that case, we shouldn't allow a delete.
         if torch.eq(input[1], input[2:]).all():
-            weight_dict['w_mlp_del'] = torch.tensor(float("-inf"))
+            weight_dict['w_mlp_del'] = torch.tensor(float("-inf")).to(input.device)
         else:
             weight_dict['w_mlp_del'] = w_mlp_del
         weight_dict['w_mlp_add'] = w_mlp_add
@@ -73,7 +73,7 @@ class MLPTreeActor(nn.Module):
         weight_dict = self.get_policy_weights(input)
         # Encapsulate our poliy in an object so downstream classes don't
         # need to know what kind of distribution to re-create.
-        policy = TreePolicy(self.decision_tree, weight_dict)
+        policy = TreePolicy(self.decision_tree, weight_dict, input.device)
 
         actions = policy.sample(1)
         # Each actions is drawn independtly of others, so joint prob
@@ -134,7 +134,7 @@ class CNNTreeActor(nn.Module):
         weight_dict = {}
         w_conv_del, w_conv_add = self.w_conv_del(output), self.w_conv_add(output)
         w_conv_add_conv, w_conv_add_max, w_conv_add_avg = self.w_conv_add_conv(output), self.w_conv_add_max(output), self.w_conv_add_avg(output)
-        weight_dict['conv_count'] = self._output_size
+        weight_dict['conv_count'] = self._output_size.to(input.device)
 
         # If values 1..n are all equally, they're probably all 0.
         # In that case, we shouldn't allow a delete.
@@ -168,7 +168,7 @@ class CNNTreeActor(nn.Module):
         # Encapsulate our policy in an object so downstream classes don't
         # need to know what kind of distribution to re-create.
         weight_dict = self.get_policy_weights(input)
-        policy = TreePolicy(self.decision_tree, weight_dict)
+        policy = TreePolicy(self.decision_tree, weight_dict, input.device)
         actions = policy.sample(1)
         #print(actions)
         # Each actions is drawn independtly of others, so joint prob
@@ -234,9 +234,10 @@ class JointTreeActor(nn.Module):
         return weight_dict
 
     def forward(self, input):
+        assert input[0].device == input[1].device
         cnn_input, mlp_input = input
         weight_dict = self.get_policy_weights(cnn_input, mlp_input)
-        policy = TreePolicy(self.decision_tree, weight_dict)
+        policy = TreePolicy(self.decision_tree, weight_dict, input[0].device)
         actions = policy.sample(1)
         # Each actions is drawn independtly of others, so joint prob
         # is all of them multiplied together. However, since we have logprobs,

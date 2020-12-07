@@ -60,7 +60,8 @@ class JointClassificationEnv(gym.Env):
         return itertools.chain([0], min), itertools.chain([2], max)
 
     def __init__(self, data_dim, cnn_conf, mlp_conf, inner_loss=None, train_data_iter=None, 
-    validation_data_iter=None, classes=10, reward_fn=nasrl.reward.Linear, adapt_steps=3
+        validation_data_iter=None, classes=10, reward_fn=nasrl.reward.Linear, adapt_steps=3,
+        device='cpu'
     ):
         super(JointClassificationEnv, self).__init__()
         assert not isinstance(train_data_iter, torch.utils.data.DataLoader) # type: ignore
@@ -86,6 +87,7 @@ class JointClassificationEnv(gym.Env):
         self.classes = classes
         self.reward_fn = reward_fn
         self.adapt_steps = adapt_steps
+        self.device = device
 
         # Limit CNN min / max values by examining CNN config
         if cnn_conf.n_layers > 0:
@@ -252,13 +254,15 @@ class JointClassificationEnv(gym.Env):
         # Create a classification network using our current state.
         class_kernel = create_nn_from_def(self.data_dim, self.cnn_state, mlp_state)
         class_net = librl.nn.classifier.Classifier(class_kernel, self.classes)
+        class_net = class_net.to(self.device)
         class_net.train()
 
         # Create and run a classification task.
         t, v = self.train_data_iter, self.validation_data_iter
         cel = torch.nn.CrossEntropyLoss()
-        inner_task = librl.task.classification.ClassificationTask(classifier=class_net, criterion=cel, train_data_iter=t, validation_data_iter=v)
-        
+        inner_task = librl.task.classification.ClassificationTask(classifier=class_net, 
+            criterion=cel, train_data_iter=t, validation_data_iter=v, device=self.device
+        )
         correct, total = [], []
         # TODO: Only perform validation step on `last` step.
         for _ in range(self.adapt_steps + 1):
@@ -277,10 +281,8 @@ class JointClassificationEnv(gym.Env):
 
 # Classification where only CNN's will be used.
 class CNNClassificationEnv(JointClassificationEnv):
-    def __init__(self, data_dim, cnn_conf, inner_loss=None, train_data_iter=None, validation_data_iter=None, 
-    classes=10, reward_fn=nasrl.reward.Linear, adapt_steps=2):
-        super(CNNClassificationEnv, self).__init__(data_dim, cnn_conf, None, inner_loss, train_data_iter, 
-        validation_data_iter, classes, reward_fn=reward_fn, adapt_steps=adapt_steps)
+    def __init__(self, data_dim, cnn_conf, **kwargs):
+        super(CNNClassificationEnv, self).__init__(data_dim, cnn_conf, None, **kwargs)
         self.observation_space = self.cnn_observation_space
     def reset(self):
         # Only expose the state of the CNN.
@@ -295,10 +297,8 @@ class CNNClassificationEnv(JointClassificationEnv):
 
 # Classification where only MLP's will be used.
 class MLPClassificationEnv(JointClassificationEnv):
-    def __init__(self, data_dim, mlp_conf, inner_loss=None, train_data_iter=None, validation_data_iter=None, 
-    classes=10, reward_fn=nasrl.reward.Linear, adapt_steps=2):
-        super(MLPClassificationEnv, self).__init__(data_dim, None, mlp_conf, inner_loss, train_data_iter, 
-        validation_data_iter, classes, reward_fn=reward_fn, adapt_steps=adapt_steps)
+    def __init__(self, data_dim, mlp_conf, **kwargs):
+        super(MLPClassificationEnv, self).__init__(data_dim, None, mlp_conf, **kwargs)
         self.observation_space = self.mlp_observation_space
 
     def reset(self):

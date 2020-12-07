@@ -30,25 +30,26 @@ class ProbabalisticBranch(ProbablisticNode):
         self.parent = None
         for node in node_list: node.parent = self
 
-    def _get_dist(self, weight_dict):
+    def _get_dist(self, weight_dict, device):
         weights = [weight_dict[key] for key in self.node_weight_keys]
-        probs = torch.nn.functional.softmax(torch.FloatTensor(weights),dim=0)
+        weights = torch.FloatTensor(weights).to(device)
+        probs = torch.nn.functional.softmax(weights, dim=0)
         return torch.distributions.categorical.Categorical(probs=probs)
 
-    def sample(self, count, weight_dict):
+    def sample(self, count, weight_dict, device):
         actions = []
-        dist = self._get_dist(weight_dict)
+        dist = self._get_dist(weight_dict, device)
         for idx in dist.sample((count,)):
-            actions.extend(self.node_list[idx].sample(1, weight_dict))
+            actions.extend(self.node_list[idx].sample(1, weight_dict, device))
         return actions
 
-    def log_prob(self, node, weight_dict):
-        dist = self._get_dist(weight_dict)
+    def log_prob(self, node, weight_dict, device):
+        dist = self._get_dist(weight_dict, device)
         # Compute the probability of picking this index
         idx = self.node_list.index(node)
-        log_prob = dist.log_prob(torch.IntTensor([idx]))
+        log_prob = dist.log_prob(torch.IntTensor([idx]).to(device))
         # If our parent exists, ask it for the logprob of choosing us.
-        return log_prob + (self.parent.log_prob(self, weight_dict) if self.parent else 0)
+        return log_prob + (self.parent.log_prob(self, weight_dict, device) if self.parent else 0)
 
     def __str__(self, level=0):
         ret = "\t"*level+"node"+"\n"
@@ -59,17 +60,17 @@ class ProbabalisticBranch(ProbablisticNode):
 # If you want to add a new kind of action, you need to subclass this leaf node.
 # All you need to do is override _sample and _log_prob.
 class ProbabilisticLeaf(ProbablisticNode):
-    def sample(self, count, weight_dict):
-        return [self._sample(weight_dict) for _ in range(count)]
+    def sample(self, count, weight_dict, device):
+        return [self._sample(weight_dict, device) for _ in range(count)]
     # Compute the log prob by walking back up the tree.
-    def log_prob(self, action, weight_dict):
+    def log_prob(self, action, weight_dict, device):
         # If our parent exists, ask it for the logprob of choosing us.
-        return self._log_prob(action, weight_dict) + (self.parent.log_prob(self, weight_dict) if self.parent else 0)
+        return self._log_prob(action, weight_dict, device) + (self.parent.log_prob(self, weight_dict, device) if self.parent else 0)
 
     # Sample a single action using a weight dictionary.
-    def _sample(self, weight_dict): raise NotImplementedError("You need to implement this")
+    def _sample(self, weight_dict, device): raise NotImplementedError("You need to implement this")
     # Given a single action, compute the log probability that the action came from the current leaf.
-    def _log_prob(self, action, weight_dict): raise NotImplementedError("You need to implement this")
+    def _log_prob(self, action, weight_dict, device): raise NotImplementedError("You need to implement this")
     def __str__(self, level=0):
         ret = "  "*level+self.__class__.__name__+"\n"
         return ret

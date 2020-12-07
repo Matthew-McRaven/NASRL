@@ -19,12 +19,16 @@ import nasrl.field
 from . import *
 
 def mlp_helper(mnist_dataset, reward_fn):
-    loaders = mnist_dataset.t_loaders, mnist_dataset.v_loaders
+    t,v = mnist_dataset.t_loaders, mnist_dataset.v_loaders
     # TODO: If last adapt step stops updating NN, must change this to 1.
     interval = nasrl.field.Interval(0, 1000)
     field = nasrl.field.Field(interval, lambda *_:200)
     mlp_conf = nasrl.field.MLPConf(10, field, min_layer_size=10)
-    env = nasrl.tree.env.MLPClassificationEnv((1,28,28), mlp_conf, torch.nn.CrossEntropyLoss(), *loaders, reward_fn=reward_fn, adapt_steps=0)
+    env = nasrl.tree.env.MLPClassificationEnv((1,28,28), mlp_conf, 
+        inner_loss=torch.nn.CrossEntropyLoss(), train_data_iter=t,
+        reward_fn=reward_fn, validation_data_iter=v, adapt_steps=0, 
+        device=mnist_dataset.hypers['device']
+    )
     # Construct my agent.
     x = functools.reduce(lambda x,y: x*y, env.observation_space.shape, 1)
     policy_kernel = librl.nn.core.MLPKernel(x)
