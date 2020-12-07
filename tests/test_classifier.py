@@ -18,5 +18,9 @@ def test_label_mnist(mnist_dataset):
     # Construct dataloaders from datasets
     t,v = mnist_dataset.t_loaders, mnist_dataset.v_loaders
     # Construct a labelling task.
-    dist.add_task(librl.task.Task.Definition(librl.task.ClassificationTask, classifier=class_net, criterion=torch.nn.CrossEntropyLoss(), train_data_iter=t, validation_data_iter=v))
+    dist.add_task(librl.task.Task.Definition(librl.task.ClassificationTask, 
+        classifier=class_net, criterion=torch.nn.CrossEntropyLoss(), 
+        train_data_iter=t, validation_data_iter=v, train_percent=.1, 
+        validation_percent=.1)
+    )
     librl.train.train_loop.cls_trainer(mnist_dataset.hypers, dist, librl.train.classification.train_single_label_classifier)
