@@ -8,4 +8,4 @@ class BilinearAdapter(librl.nn.core.BilinearKernel):
         super(BilinearAdapter, self).__init__(*args, **kwargs)
     def forward(self, tuple_input):
         i0, i1 = tuple_input
-        return super(BilinearAdapter, self).forward(i0, i1)
+        return super(BilinearAdapter, self).forward(i0.view(-1), i1.view(-1))

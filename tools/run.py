@@ -117,12 +117,13 @@ def get_cnn_conf(max_layers):
     return CNNConf(max_layers, c_f, k_f, s_f, p_f, d_f, lambda _: 1)
 
 def build_mlp(dset, hypers):
-    loaders = dset.t_loaders, dset.v_loaders
+    t,v = dset.t_loaders, dset.v_loaders
     env = nasrl.tree.env.MLPClassificationEnv(dset.dims, get_mlp_conf(hypers['max_mlp_layers']),
-        torch.nn.CrossEntropyLoss(), *loaders, adapt_steps=hypers['adapt_steps'])
+        inner_loss = torch.nn.CrossEntropyLoss(),  adapt_steps=hypers['adapt_steps'],
+        train_data_iter=t, validation_data_iter=v, classes=10, reward_fn=nasrl.reward.Linear, device='cpu')
     # Construct my agent.
     x = functools.reduce(lambda x,y: x*y, env.observation_space.shape, 1)
-    policy_kernel = librl.nn.core.MLPKernel(x)
+    policy_kernel = librl.nn.core.RecurrentKernel(x, 100, 3)
     tx_layer_size = env.mlp_conf.mlp.transform.forward(env.mlp_conf.min_layer_size)
     policy_net = nasrl.tree.actor.MLPTreeActor(policy_kernel, env.observation_space, min_layer_size=tx_layer_size)
     critic_kernel = librl.nn.core.MLPKernel(x)
@@ -130,26 +131,28 @@ def build_mlp(dset, hypers):
     return env, critic_net, policy_net
 
 def build_cnn(dset, hypers):
-    loaders = dset.t_loaders, dset.v_loaders
+    t,v = dset.t_loaders, dset.v_loaders
     env = nasrl.tree.env.CNNClassificationEnv(dset.dims, get_cnn_conf(hypers['max_cnn_layers']), 
-        torch.nn.CrossEntropyLoss(), *loaders, adapt_steps=hypers['adapt_steps'])
+        inner_loss = torch.nn.CrossEntropyLoss(),  adapt_steps=hypers['adapt_steps'],
+        train_data_iter=t, validation_data_iter=v, classes=10, reward_fn=nasrl.reward.Linear, device='cpu')
     # Construct my agent.
     x = functools.reduce(lambda x,y: x*y, env.observation_space.shape, 1)
-    policy_kernel = librl.nn.core.MLPKernel(x)
+    policy_kernel = librl.nn.core.RecurrentKernel(x, 100, 3)
     policy_net = nasrl.tree.actor.CNNTreeActor(policy_kernel, env.observation_space)
     critic_kernel = librl.nn.core.MLPKernel(x)
     critic_net= librl.nn.critic.ValueCritic(critic_kernel)
     return env, critic_net, policy_net
 
 def build_joint(dset, hypers):
-    loaders = dset.t_loaders, dset.v_loaders
+    t, v = dset.t_loaders, dset.v_loaders
     env = nasrl.tree.env.JointClassificationEnv(dset.dims, get_cnn_conf(hypers['max_cnn_layers']), 
-        get_mlp_conf(hypers['max_mlp_layers']), torch.nn.CrossEntropyLoss(), *loaders,  adapt_steps=hypers['adapt_steps'])
-    # Construct an NN to process MLP and CNN network descriptions.
+        get_mlp_conf(hypers['max_mlp_layers']), inner_loss = torch.nn.CrossEntropyLoss(),  adapt_steps=hypers['adapt_steps'],
+        train_data_iter=t, validation_data_iter=v, classes=10, reward_fn=nasrl.reward.Linear,device='cpu' ) 
+        # Construct an NN to process MLP and CNN network descriptions.
     cnn_size = functools.reduce(lambda x,y: x*y, env.cnn_observation_space.shape, 1)
     mlp_size = functools.reduce(lambda x,y: x*y, env.mlp_observation_space.shape, 1)
-    cnn_policy_kernel = librl.nn.core.MLPKernel(cnn_size)
-    mlp_policy_kernel = librl.nn.core.MLPKernel(mlp_size)
+    cnn_policy_kernel = librl.nn.core.RecurrentKernel(cnn_size, 100, 3)
+    mlp_policy_kernel = librl.nn.core.RecurrentKernel(mlp_size, 100, 3)
 
     # Use a bi-linear layer to combine state information about the MLP and CNN
     # to properly init cnn/mlp weighs.
@@ -170,12 +173,14 @@ def main(args):
     hypers['device'] = 'cpu'
     hypers['epochs'] = args.epochs
     hypers['task_count'] = args.task_count
-    hypers['adapt_steps'] = hypers['episode_length'] = args.adapt_steps
+    hypers['adapt_steps'] = args.adapt_steps
+    hypers['episode_length'] = args.episode_length
     hypers['max_mlp_layers'] = 10
     hypers['max_cnn_layers'] = 10
     dset = mnist_dataset()
 
     env, critic, actor = args.type(dset, hypers)
+    critic, actor = critic.to(hypers['device']), actor.to(hypers['device'])
     agent = args.alg(hypers, critic, actor)
 
     dist = librl.task.TaskDistribution()
@@ -205,3 +210,26 @@ if __name__ == "__main__":
     parser.add_argument("--task-count", dest="task_count", default=3, type=int, help="Number of times of trials of the generator per epoch.")
     args = parser.parse_args()
     main(args)
+
+@pytest.mark.parametrize("alg", ["vpg", "pgb"])
+@pytest.mark.parametrize("type", ["mlp","cnn", "joint"])
+def test_all(alg, type):
+    from types import SimpleNamespace
+
+    args = {}
+    args['epochs'] = 100
+    args['task_count'] = 1
+    args['episode_length'] = 100
+    args['adapt_steps'] = 3
+
+    if alg == "vpg": args['alg'] = vpg_helper
+    elif alg == "pgb": args['alg'] = pgb_helper
+    elif alg == "ppo": args['alg'] = ppo_helper
+
+    if type == "mlp": args['type'] = build_mlp
+    elif type == "cnn": args['type'] = build_cnn
+    elif type == "joint": args['type'] = build_joint
+    
+    args['log_dir'] = f"test-LSTM-{alg}-{type}"
+    
+    return main(SimpleNamespace(**args))

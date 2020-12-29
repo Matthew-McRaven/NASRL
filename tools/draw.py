@@ -17,16 +17,18 @@ plt.figure(figsize=(10,5))
 # |
 # V
 log_directories = [
-	'../../mlp_sweep_logs/sweep-pgb-mlp/', 
-	'../../mlp_sweep_logs/sweep-vpg-mlp/',
-	'../../mlp_sweep_logs/sweep-ppo-mlp/'
+	'test-LSTM-pgb-mlp/', 
+	'test-LSTM-vpg-mlp/',
+	'test-LSTM-vpg-cnn/',
+	'test-LSTM-vpg-joint/',
 	]
 # log_directories = ['../../mlp_sweep_logs/sweep-pgb-mlp/']
 
 log_names = [
-	'MLP_PGB',
-	'MLP_VPG',
-	'MLP_PPO'
+	'MLP-PGB',
+	'MLP-VPG',
+	'CNN-VPG',
+	'JOINT-VPG',
 	]
 
 
@@ -155,7 +157,7 @@ plt.xlim(0,len(step)-1)
 plt.legend(loc="best")
 plt.xlabel("epoch")
 plt.ylabel("end of training accuracy")
-savefigname ='../../mlp_sweep_accuracy.pdf'
+savefigname ='lstm_sweep_accuracy.pdf'
 plt.savefig(savefigname)
 # print('time to exit')
 # sys.exit()
@@ -172,5 +174,5 @@ for pidx,params in enumerate(all_params):
 plt.ylim(0,np.max(max_params)*1.1)
 plt.xlim(0,len(step)-1)
 plt.legend(loc="best")
-savefigname ='../../mlp_sweep_params.pdf'
+savefigname ='lstm_sweep_params.pdf'
 plt.savefig(savefigname)

@@ -93,8 +93,8 @@ class JointClassificationEnv(gym.Env):
         if cnn_conf.n_layers > 0:
             # type, out_channel, kernel_size, stride, padding, dilation.
             mins, maxs = JointClassificationEnv.extract_shapes(cnn_conf)
-            low = np.tile(np.fromiter(mins, dtype=np.float64, count=6), (cnn_conf.n_layers, 1))
-            high = np.tile(np.fromiter(maxs, dtype=np.float64, count=6), (cnn_conf.n_layers, 1))
+            low = np.tile(np.fromiter(mins, dtype=np.float32, count=6), (cnn_conf.n_layers, 1))
+            high = np.tile(np.fromiter(maxs, dtype=np.float32, count=6), (cnn_conf.n_layers, 1))
             self.cnn_observation_space = gym.spaces.Box(low, high, [cnn_conf.n_layers, 6], dtype=np.int16)
         # Limit MLP min / max values by examining MLP config
         if mlp_conf.n_layers > 0:
@@ -186,7 +186,7 @@ class JointClassificationEnv(gym.Env):
     # Create a pool definition from an action. 
     def _normalize_pool(self, action) -> librl.nn.core.cnn.pool_def:
         kernel, stride, padding, dilation = self._normalize_core(action)
-        if action.pool_type == 'avg': dilation == 1
+        if action.pool_type == 'avg': dilation = 1
         return librl.nn.core.cnn.pool_def(kernel, stride, padding, dilation, pool_type=action.pool_type)
 
     # Convert CNN & MLP state to something presentable to a neural net.
@@ -261,7 +261,8 @@ class JointClassificationEnv(gym.Env):
         t, v = self.train_data_iter, self.validation_data_iter
         cel = torch.nn.CrossEntropyLoss()
         inner_task = librl.task.classification.ClassificationTask(classifier=class_net, 
-            criterion=cel, train_data_iter=t, validation_data_iter=v, device=self.device
+            criterion=cel, train_data_iter=t, validation_data_iter=v, device=self.device,
+            train_percent= .01, validation_percent=.01
         )
         correct, total = [], []
         # TODO: Only perform validation step on `last` step.

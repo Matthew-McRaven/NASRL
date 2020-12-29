@@ -128,7 +128,7 @@ class CNNTreeActor(nn.Module):
 
     from nasrl.tree.env import field_idx as _field_idx
     def get_policy_weights(self, input):
-        output = self.neural_module(input).view(-1, self._input_size)
+        output = self.neural_module(input.view(-1)).view(-1, self._input_size)
 
         # TODO: Figure out how to make inputs/outputs sane sizes.
         weight_dict = {}
@@ -227,7 +227,7 @@ class JointTreeActor(nn.Module):
         weight_dict = {}
         weight_dict.update(self.cnn_actor.get_policy_weights(cnn_input))
         weight_dict.update(self.mlp_actor.get_policy_weights(mlp_input))
-        output = self.fusion_kernel(cnn_input, mlp_input)
+        output = self.fusion_kernel(cnn_input.view(-1), mlp_input.view(-1))
         weight_dict['w_mlp'] = self.w_mlp(output)
         weight_dict['w_conv'] = self.w_conv(output)
 
